@@ -23,7 +23,7 @@ app.get('/', (req, res) => {
     res.send('Hello squirrel');
 });
 
-// app.use('/api/users', userRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
 // app.use('/api/audios', audioRoutes);
 
