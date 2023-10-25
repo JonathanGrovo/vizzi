@@ -20,7 +20,7 @@ mongoose.connect(DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true
 
 // Routes
 app.get('/', (req, res) => {
-    res.send('Hello World');
+    res.send('Hello squirrel');
 });
 
 // app.use('/api/users', userRoutes);
