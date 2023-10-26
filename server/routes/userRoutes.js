@@ -12,6 +12,9 @@ router.post('/setup', async (req, res) => {
             name: name
         });
 
+        console.log(`${user}`);
+
+
         await user.save();
 
         res.json({ message: "User setup successful", userId: user._id });
