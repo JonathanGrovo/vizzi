@@ -3,28 +3,21 @@ const User = require('../models/User');
 const router = express.Router();
 
 router.post('/setup', async (req, res) => {
+    console.log('Received request data:', req.body);  // <-- Log incoming data
     try {
-        const { name, userId } = req.body;
+        const { name } = req.body;
 
-        // check if user with provided userId already exists
-        let user = await User.findOne({ _id: userId });
-
-        if (user) {
-            // update existing user's name
-            user.name = name;
-        } else {
-            // create a new user
-            user = new User({
-                _id: userId,
-                name: name
-            });
-        }
+        // new user created
+        const user = new User({
+            name: name
+        });
 
         await user.save();
 
         res.json({ message: "User setup successful", userId: user._id });
 
     } catch (error) {
+        console.error('Detailed error:', error);  // <-- log the detailed error here
         res.status(500).json({ error: 'Error setting up user.' });
     }
 });

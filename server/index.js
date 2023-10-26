@@ -4,9 +4,12 @@ const cors = require('cors');
 const userRoutes = require('./routes/userRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const audioRoutes = require('./routes/audioRoutes');
+const morgan = require('morgan') // for server logging
 
 const app = express();
 const PORT = 5000;
+
+app.use(morgan('combined'));
 
 // Middleware
 app.use(cors());

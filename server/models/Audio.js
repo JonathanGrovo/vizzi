@@ -8,7 +8,7 @@ const audioSchema = new mongoose.Schema({
     // length of the audio file
     length: Number,
     uploader: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: String,
         ref: 'User'
     },
     roomId: {

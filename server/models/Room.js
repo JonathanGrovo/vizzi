@@ -13,12 +13,12 @@ const roomSchema = new mongoose.Schema({
     },
     // room owner stored for privileges
     owner: {
-        type: mongoose.Schema.Types.ObjectId,
+        type: String, // since we are using uuid
         ref: 'User'
     },
     // user list associated with room
     users: [{
-        type: mongoose.Schema.Types.ObjectId,
+        type: String, // again, since we are using uuid for user ids
         ref: 'User'
     }]
  });

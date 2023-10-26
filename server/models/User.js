@@ -1,8 +1,13 @@
 // mongoose allows for schema modeling for application data
 const mongoose = require('mongoose');
+const { v4: uuidv4 } = require('uuid');
 
 // constructs a new schema
 const userSchema = new mongoose.Schema({ 
+    _id: { // using uuidv4 for user id specification
+        type: String,
+        default: uuidv4
+    },
     name: {
         type: String,
         required: true
