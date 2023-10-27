@@ -6,3 +6,6 @@ node_modules/
 *.log
 # ignore data storage
 mongodb-data/
+# keys
+desktop
+desktop.pub
