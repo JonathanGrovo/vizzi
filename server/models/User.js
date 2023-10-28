@@ -20,6 +20,11 @@ const userSchema = new mongoose.Schema({
     joinedAt: {
         type: Date,
         default: Date.now
+    },
+    // used for kicking inactive users
+    lastActive: {
+        type: Date,
+        default: Date.now
     }
  });
 

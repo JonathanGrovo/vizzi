@@ -20,6 +20,11 @@ const roomSchema = new mongoose.Schema({
     users: [{
         type: String, // again, since we are using uuid for user ids
         ref: 'User'
+    }],
+    // list of muted members in the room
+    mutedUsers: [{
+        type: String,
+        ref: 'User'
     }]
  });
 

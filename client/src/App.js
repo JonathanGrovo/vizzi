@@ -6,6 +6,14 @@ import JoinRoom from './components/JoinRoom';
 import UserSetup from './components/UserSetup';
 import CreateRoom from './components/CreateRoom';
 
+// import socket.io client
+import io from 'socket.io-client';
+const socket = io('http://localhost:3001');
+
+socket.on('someEvent', (data) => {
+    // handle real time event
+});
+
 // defining the main app component
 function App() {
 
