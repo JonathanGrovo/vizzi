@@ -24,7 +24,7 @@ function App() {
     const [name, setName] = useState('');
     const [action, setAction] = useState(''); // join or create
     const [userId, setUserId] = useState(localStorage.getItem('userId') || '');
-    const [roomId, setRoomId] = useState(null); // room id initially set to null
+    const [roomCode, setRoomCode] = useState(null); // room id initially set to null
     const [isInRoom, setIsInRoom] = useState(false); // not initially in room
   
     const handleNameSet = (nameValue, userIdValue) => {
@@ -40,17 +40,21 @@ function App() {
     useEffect(() => {
         console.log('UserId:', userId, 'IsInRoom:', isInRoom);
     }, [userId, isInRoom]);
-    
-  
 
+    useEffect(() => {
+      console.log('Room Code:', roomCode);
+    }, [roomCode]);
+  
+  
     useEffect(() => {
         if (userId) {
           (async () => {
+
             const inRoom = await checkIsInRoom(userId);
             setIsInRoom(inRoom);
             if (inRoom) {
-              const room = await getRoomId(userId);
-              setRoomId(room);
+              const room = await getRoomCode(userId);
+              setRoomCode(room);
             }
           })();
         }
@@ -63,19 +67,22 @@ function App() {
     return (
         <Router>
           <div>
-            {userId && isInRoom ? (
-              <Navigate to={`/room/${roomId}`} replace />
-            ) : (
+            {/* {userId && isInRoom ? (
+              <Navigate to={`/room/${roomCode}`} />
+            ) : ( */}
               <>
                 <Routes>
                   <Route path="/" element={<LandingPage onAction={setAction} />} />
                   <Route path="/setup" element={<UserSetup onNameSet={handleNameSet} action={action} />} />
                   <Route path="/join" element={<JoinRoom userId={userId} name={name} />} />
                   <Route path="/create" element={<CreateRoom userId={userId} />} />
-                  <Route path="/room/:roomId" element={<Room />} />
+                  <Route path="/room/:roomCode" element={<Room />} />
                 </Routes>
               </>
-            )}
+            {/* )} */}
+          </div>
+          <div>
+            <Navigate to={`/room/${roomCode}`} />
           </div>
         </Router>
       );
@@ -89,10 +96,10 @@ async function checkIsInRoom(userId) {
 }
 
 // gets the id of the room
-async function getRoomId(userId) {
+async function getRoomCode(userId) {
     const response = await fetch(`/api/users/${userId}/room`);
     const data = await response.json();
-    return data.roomId;
+    return data.roomCode;
 }
 
 export default App;

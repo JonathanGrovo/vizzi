@@ -21,5 +21,5 @@ function LandingPage({ onAction }) {
       </div>
     );
 }
-  
+
 export default LandingPage;

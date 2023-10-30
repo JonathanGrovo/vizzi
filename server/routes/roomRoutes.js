@@ -3,12 +3,9 @@ const router = express.Router();
 const Room = require('../models/Room');
 const User = require('../models/User');
 
-// defines lax room size
-const MAX_ROOM_SIZE = 10;
-
 // function for generating unique room codes
 async function generateUniqueRoomCode(length = 6) {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let roomCode;
 
     do {
@@ -26,11 +23,26 @@ async function generateUniqueRoomCode(length = 6) {
 // creating room logic
 router.post('/', async (req, res) => { // allows for use of await keyword
     try {
+        // check if a room already exists with the same owner
+        const existingOwnedRoom = await Room.findOne({ owner: req.body.userId });
+
+        if (existingOwnedRoom) {
+            return res.status(400).json({ error: 'You already own a room.' });
+        }
+
+        // check if the user is already in any room
+        const existingJoinedRoom = await Room.findOne({ 'joinedUsers.userId': req.body.userId });
+
+        if (existingJoinedRoom) {
+            return res.status(400).json({ error: 'You are already in a room.' });
+        }
+        
         const roomCode = await generateUniqueRoomCode();
         // using schema to construct a new room document
         const newRoom = new Room({
             code: roomCode,
-            owner: req.body.userId, // assuming userId sent in request body
+            owner: req.body.userId,
+            users: [req.body.userId], // added as user
             maxUsers: req.body.maxUsers || 10, // sample room testing
             initiallyMuted: req.body.initiallyMuted || false // sample room testing
         });
@@ -41,12 +53,11 @@ router.post('/', async (req, res) => { // allows for use of await keyword
     }
 });
 
-
 // joining room logic
 router.post('/join', async (req, res) => {
     try {
-        // query for finding room with code matching one sent in req body
-        const room = await Room.findOne({ code: req.body.roomCode });
+        // query for finding room with code matching one sent in req body, not depending on case
+        const room = await Room.findOne({ code: { $regex: new RegExp(`^${req.body.roomCode}$`, 'i') } });
 
         if (!room) { // if a room was not found
             return res.status(400).json({ error: 'Invalid room code.' });
