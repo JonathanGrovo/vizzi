@@ -16,7 +16,7 @@ const UserSetup = ({ onNameSet }) => {
     const handleNameSubmit = async () => {
         if (name) { // if there is a name in the field
             try { // sends the name and userId to the backend
-                const response = await fetch('/api/users/setup', {
+                const response = await fetch('/api/users/', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'

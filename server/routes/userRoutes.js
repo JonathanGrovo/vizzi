@@ -25,4 +25,15 @@ router.post('/setup', async (req, res) => {
     }
 });
 
+// for checking if a user is in a room
+router.get('/:userId/room', async (req, res) => {
+    const userId = req.params.userId; // gets userId from request body
+    const room = await findRoomByUserId(userId); // attempts to find room based on userId
+    if (room) {
+        res.json({ inRoom: true, roomId: room.id }); // return true with roomId
+    } else {
+        res.json({ inRoom: false});
+    }
+});
+
 module.exports = router;

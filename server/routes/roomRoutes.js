@@ -30,7 +30,9 @@ router.post('/', async (req, res) => { // allows for use of await keyword
         // using schema to construct a new room document
         const newRoom = new Room({
             code: roomCode,
-            owner: req.body.userId // assuming userId sent in request body
+            owner: req.body.userId, // assuming userId sent in request body
+            maxUsers: req.body.maxUsers || 10, // sample room testing
+            initiallyMuted: req.body.initiallyMuted || false // sample room testing
         });
         await newRoom.save(); // saves new room to database, waits before cont.
         res.json({ roomCode }); // response back to client
@@ -51,7 +53,7 @@ router.post('/join', async (req, res) => {
         }
 
         // check if room has reaached capacity
-        if (room.users.length >= MAX_ROOM_SIZE) {
+        if (room.users.length >= room.maxUsers) {
             return res.status(400).json({ error: 'Room is full.' });
         }
 
@@ -115,7 +117,7 @@ router.post('/leave', async (req, res) => {
 
             res.json({ message: 'Left room successfully!' });
         } else {
-            res.status(400).json({ error: 'Invalid room code.' });
+            res.status(400).json({ error: 'Invalid room code' });
         }
     } catch (error) {
         res.status(500).json({ error: 'Error leaving room. Please try again.' });

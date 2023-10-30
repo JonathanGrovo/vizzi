@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-const JoinRoom = ({ userId, name }) => {
+function JoinRoom({ userId, name }) {
     const [roomCode, setRoomCode] = useState(''); // holds code user enters to join room
     const [message, setMessage] = useState(''); // holds message shown to user
+
+    const navigate = useNavigate();
+
+    const handleGoToCreateRoom = () => {
+        navigate('/create'); // navigate to create room page
+    }
 
     const handleJoin = async () => {
         try {
@@ -46,6 +53,7 @@ const JoinRoom = ({ userId, name }) => {
                 <button onClick={handleJoin}>Join</button>
             </div>
             {message && <p>{message}</p>}
+            <button onClick={handleGoToCreateRoom}>Go to Create Room</button>
         </div>
     );
 };

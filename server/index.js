@@ -1,4 +1,4 @@
-require('dotenv').cofig(); // for environment variables
+require('dotenv').config(); // for environment variables
 
 const express = require('express'); // framework for apis
 const mongoose = require('mongoose'); // helps handle interaction between express and mongodb
@@ -18,13 +18,23 @@ const {PORT, DATABASE_URL} = require('./config'); // config import
 // basic server setup
 const app = express();
 
-// const PORT = process.env.PORT || 5000;
+app.use(cors({ // allows cross origin requests from all urls, MUST CHANGE WHEN DEPLOYED
+    origin: "http://localhost:3000",
+    methods: ["GET", "POST"],
+    credentials: true
+}));
 
 // create an http server using express app
 const server = http.createServer(app);
 
 // initialize socket.io with the http server
-const io = socketIO(server);
+const io = socketIO(server, {
+    cors: {
+        origin: "http://localhost:3000", // application frontend url
+        methods: ["GET", "POST"],
+        credentials: true // allows cookies to be sent and received
+    }
+});
 
 // executes when a client connects
 io.on('connection', (socket) => {
@@ -34,14 +44,10 @@ io.on('connection', (socket) => {
 
 // Middleware
 app.use(morgan('combined'));
-app.use(cors()); // alloows cross origin requests
+  
 app.use(express.json());  // For parsing application/json
 
 // Connecting to DB
-
-// defined either from env var or local db
-
-// const DATABASE_URL = process.env.DATABASE_URL || 'mongodb://localhost:27017/myDatabase';
 
 // connecting to the database
 mongoose.connect(DATABASE_URL, { useNewUrlParser: true, useUnifiedTopology: true })

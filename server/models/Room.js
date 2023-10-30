@@ -11,6 +11,10 @@ const roomSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
+    isActive: {
+        type: Boolean,
+        default: true
+    },
     // room owner stored for privileges
     owner: {
         type: String, // since we are using uuid
@@ -25,7 +29,31 @@ const roomSchema = new mongoose.Schema({
     mutedUsers: [{
         type: String,
         ref: 'User'
-    }]
+    }],
+    // settings that the owner can adjust manually
+    settings: {
+        maxUsers: {
+            type: Number,
+            default: 10
+        },
+        muteOnEntry: {
+            type: Boolean,
+            default: false
+        }
+    },
+    currentAudio: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Audio'
+    },
+    playbackState: {
+        type: String,
+        enum: ['playing', 'paused', 'stopped'],
+        default: 'stopped'
+    },
+    playbackPosition: {
+        type: Number,
+        default: 0 // time in seconds
+    }
  });
 
 module.exports = mongoose.model('Room', roomSchema);

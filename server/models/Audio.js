@@ -28,6 +28,23 @@ const audioSchema = new mongoose.Schema({
     isPlaying: {
         type: Boolean,
         default: false
+    },
+    title: {
+        type: String,
+        required: true
+    },
+    artist: {
+        type: String,
+        required: true
+    },
+    album: {
+        type: String,
+        // could be optional
+    },
+    // for voting to skip a song
+    votes: {
+        type: Number,
+        default: 0
     }
 });
 
