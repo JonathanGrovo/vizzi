@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Link, Navigate } from 'react-router-dom'; 
+import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom'; 
 
 // import components
 import JoinRoom from './components/JoinRoom';
@@ -20,57 +20,65 @@ socket.on('someEvent', (data) => {
     // handle real time event
 });
 
+// component for navigation
+function NavigationHandler({ userId, isInRoom, roomCode }) {
+  const navigate = useNavigate(); // get navigate function
+
+  useEffect(() => {
+    if (userId && isInRoom && roomCode) {
+      navigate(`/room/${roomCode}`);
+    }
+  }, [userId, isInRoom, roomCode]); // run when any of these change
+
+  return null;
+}
+
 function App() {
     const [name, setName] = useState('');
     const [action, setAction] = useState(''); // join or create
-    const [userId, setUserId] = useState(localStorage.getItem('userId') || '');
+    const [userId, setUserId] =  useState('');
     const [roomCode, setRoomCode] = useState(null); // room id initially set to null
     const [isInRoom, setIsInRoom] = useState(false); // not initially in room
   
+    const [isLoading, setIsLoading] = useState(true); // for loading states
+
     const handleNameSet = (nameValue, userIdValue) => {
       setName(nameValue);
       setUserId(userIdValue);
     };
-
-    // In your App.js component
-    useEffect(() => {
-        console.log('Action:', action);
-    }, [action]);
-
-    useEffect(() => {
-        console.log('UserId:', userId, 'IsInRoom:', isInRoom);
-    }, [userId, isInRoom]);
-
-    useEffect(() => {
-      console.log('Room Code:', roomCode);
-    }, [roomCode]);
   
-  
-    useEffect(() => {
-        if (userId) {
-          (async () => {
 
-            const inRoom = await checkIsInRoom(userId);
-            setIsInRoom(inRoom);
-            if (inRoom) {
-              const room = await getRoomCode(userId);
-              setRoomCode(room);
-            }
-          })();
+    useEffect(() => {
+      (async () => {
+        try {
+          const response = await fetch('/api/sessions/checksession', {
+            credentials: 'include', // Include credentials
+          });
+          const data = await response.json();
+          
+          if (data.userId) {
+            setUserId(data.userId);
+          }
+          if (data.isInRoom) {
+            setIsInRoom(data.isInRoom);
+          }
+          if (data.roomCode) {
+            setRoomCode(data.roomCode);
+          }
+        } catch (error) {
+          console.error("There was a problem checking the session:", error);
         }
-      }, [userId]);
+      })();
+    }, []);  // Empty dependency array means this useEffect runs once when the component mounts
   
     const handleAction = (actionType) => {
       setAction(actionType);
     };
   
     return (
-        <Router>
+      <Router>
+        <NavigationHandler userId={userId} isInRoom={isInRoom} roomCode={roomCode} />
           <div>
-            {/* {userId && isInRoom ? (
-              <Navigate to={`/room/${roomCode}`} />
-            ) : ( */}
-              <>
                 <Routes>
                   <Route path="/" element={<LandingPage onAction={setAction} />} />
                   <Route path="/setup" element={<UserSetup onNameSet={handleNameSet} action={action} />} />
@@ -78,26 +86,26 @@ function App() {
                   <Route path="/create" element={<CreateRoom userId={userId} />} />
                   <Route path="/room/:roomCode" element={<Room />} />
                 </Routes>
-              </>
-            {/* )} */}
           </div>
-          <div>
-            <Navigate to={`/room/${roomCode}`} />
-          </div>
-        </Router>
-      );
-  }
-  
+      </Router>
+    );
+}
+
 // for checking if a user is on a room or not
-async function checkIsInRoom(userId) {
-    const response = await fetch(`/api/users/${userId}/room`); // string literal
+async function checkIsInRoom() {
+    console.log('checkisinroom hit');
+    const response = await fetch("/api/sessions/checkroom", {
+      credentials: 'include' // ensure cookies are sent
+    });
     const data = await response.json();
     return data.inRoom;
 }
 
 // gets the id of the room
-async function getRoomCode(userId) {
-    const response = await fetch(`/api/users/${userId}/room`);
+async function getRoomCode() {
+    const response = await fetch("/api/sessions/checkroom", {
+      credentials: 'include'
+    });
     const data = await response.json();
     return data.roomCode;
 }

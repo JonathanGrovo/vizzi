@@ -4,9 +4,10 @@ const express = require('express'); // framework for apis
 const mongoose = require('mongoose'); // helps handle interaction between express and mongodb
 const cors = require('cors'); // help controls requests for resources between domains
 const http = require('http'); // required for socket.io
+const cookieParser = require('cookie-parser');
 
 // route specifiers
-const userRoutes = require('./routes/userRoutes');
+const sessionRoutes = require('./routes/sessionRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 // const audioRoutes = require('./routes/audioRoutes');
 
@@ -14,6 +15,8 @@ const morgan = require('morgan'); // logs http requests
 const socketIO = require('socket.io'); // for real time functionality
 
 const {PORT, DATABASE_URL} = require('./config'); // config import
+
+const Session = require('./models/Session');
 
 // basic server setup
 const app = express();
@@ -43,8 +46,8 @@ io.on('connection', (socket) => {
 })
 
 // Middleware
+app.use(cookieParser());
 app.use(morgan('combined'));
-  
 app.use(express.json());  // For parsing application/json
 
 // Connecting to DB
@@ -60,7 +63,7 @@ app.get('/', (req, res) => {
 });
 
 // routing to appropriate files
-app.use('/api/users', userRoutes);
+app.use('/api/sessions', sessionRoutes);
 app.use('/api/rooms', roomRoutes);
 // app.use('/api/audios', audioRoutes);
 
@@ -74,3 +77,27 @@ app.use((err, req, res, next) => {
 server.listen(PORT, () => {
     console.log(`Server and Socket.io are running on port ${PORT}`);
 });
+
+setInterval(async () => {
+    await Session.deleteMany({ expiresAt: { $lt: new Date() } });
+}, 24 * 60 * 60 * 1000) // run every 24 hours
+
+
+
+
+app.get("/api/sessions/checksession", (req, res) => {
+    if (req.session) {
+      res.json({
+        userId: req.session.userId,
+        isInRoom: req.session.isInRoom,
+        roomCode: req.session.roomCode,
+      });
+    } else {
+      res.json({
+        userId: null,
+        isInRoom: false,
+        roomCode: null,
+      });
+    }
+  });
+  

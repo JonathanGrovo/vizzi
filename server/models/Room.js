@@ -17,18 +17,18 @@ const roomSchema = new mongoose.Schema({
     },
     // room owner stored for privileges
     owner: {
-        type: String, // since we are using uuid
-        ref: 'User'
+        type: String, // points to session
+        ref: 'Session'
     },
-    // user list associated with room
+    // sessions associated with the room
     users: [{
         type: String, // again, since we are using uuid for user ids
-        ref: 'User'
+        ref: 'Session'
     }],
-    // list of muted members in the room
+    // list of muted sessions in the room
     mutedUsers: [{
         type: String,
-        ref: 'User'
+        ref: 'Session'
     }],
     // settings that the owner can adjust manually
     settings: {

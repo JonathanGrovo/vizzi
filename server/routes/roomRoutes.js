@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const Room = require('../models/Room');
-const User = require('../models/User');
 
 // function for generating unique room codes
 async function generateUniqueRoomCode(length = 6) {
@@ -36,7 +35,7 @@ router.post('/', async (req, res) => { // allows for use of await keyword
         if (existingJoinedRoom) {
             return res.status(400).json({ error: 'You are already in a room.' });
         }
-        
+
         const roomCode = await generateUniqueRoomCode();
         // using schema to construct a new room document
         const newRoom = new Room({

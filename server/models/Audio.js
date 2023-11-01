@@ -9,7 +9,7 @@ const audioSchema = new mongoose.Schema({
     length: Number,
     uploader: {
         type: String,
-        ref: 'User'
+        ref: 'Session'
     },
     roomId: {
         type: mongoose.Schema.Types.ObjectId,
