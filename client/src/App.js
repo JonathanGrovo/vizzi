@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom'; 
+import axios from 'axios';
 
 // import components
 import JoinRoom from './components/JoinRoom';
@@ -9,16 +10,19 @@ import LandingPage from './components/LandingPage';
 import Room from './components/Room';
 
 // import socket.io client
-import io from 'socket.io-client';
+// import io from 'socket.io-client';
 
-// specify CORS configurations
-const socket = io('http://localhost:5000', {
-    withCredentials: true,
-});
+axios.defaults.baseURL = 'http://localhost:5000'; // backend url
+axios.defaults.withCredentials = true;
 
-socket.on('someEvent', (data) => {
-    // handle real time event
-});
+// // specify CORS configurations
+// const socket = io('http://localhost:5000', {
+//     withCredentials: true,
+// });
+
+// socket.on('someEvent', (data) => {
+//     // handle real time event
+// });
 
 // component for navigation
 function NavigationHandler({ userId, isInRoom, roomCode }) {
@@ -47,29 +51,26 @@ function App() {
       setUserId(userIdValue);
     };
   
-
     useEffect(() => {
-      (async () => {
-        try {
-          const response = await fetch('/api/sessions/checksession', {
-            credentials: 'include', // Include credentials
-          });
-          const data = await response.json();
-          
-          if (data.userId) {
-            setUserId(data.userId);
-          }
-          if (data.isInRoom) {
-            setIsInRoom(data.isInRoom);
-          }
-          if (data.roomCode) {
-            setRoomCode(data.roomCode);
-          }
-        } catch (error) {
-          console.error("There was a problem checking the session:", error);
+      axios.get('/api/sessions/checksession', {
+        withCredentials: true,
+      })
+      .then(response => {
+        const data = response.data;
+        if (data.userId) {
+          setUserId(data.userId);
         }
-      })();
-    }, []);  // Empty dependency array means this useEffect runs once when the component mounts
+        if (data.isInRoom) {
+          setIsInRoom(data.isInRoom);
+        }
+        if (data.roomCode) {
+          setRoomCode(data.roomCode);
+        }
+      })
+      .catch(error => {
+        console.error("There was a problem checking the session:", error);
+      });
+    }, []); // Empty dependency array means this useEffect runs once when the component mounts
   
     const handleAction = (actionType) => {
       setAction(actionType);
@@ -93,21 +94,28 @@ function App() {
 
 // for checking if a user is on a room or not
 async function checkIsInRoom() {
-    console.log('checkisinroom hit');
-    const response = await fetch("/api/sessions/checkroom", {
-      credentials: 'include' // ensure cookies are sent
+  console.log('checkisinroom hit');
+  try {
+    // get request
+    const response = await axios.get("/api/sessions/checkroom", {
+      withCredentials: true
     });
-    const data = await response.json();
-    return data.inRoom;
+    return response.data.inRoom;
+  } catch (error) {
+    console.error("There was a problem checking if in room:", error);
+  }
 }
 
 // gets the id of the room
 async function getRoomCode() {
-    const response = await fetch("/api/sessions/checkroom", {
-      credentials: 'include'
+  try {
+    const response = await axios.get("/api/sessions/checkroom", {
+      withCredentials: true
     });
-    const data = await response.json();
-    return data.roomCode;
+    return response.data.roomCode;
+  } catch (error) {
+    console.error("There was a problem getting the room code:", error);
+  }
 }
 
 export default App;

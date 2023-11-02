@@ -20,37 +20,52 @@ async function generateUniqueRoomCode(length = 6) {
 // route definitions:
 
 // creating room logic
-router.post('/', async (req, res) => { // allows for use of await keyword
-    try {
-        // check if a room already exists with the same owner
-        const existingOwnedRoom = await Room.findOne({ owner: req.body.userId });
+router.post('/', async (req, res) => {
 
+    console.log('hitting room creation');
+    try {
+        const session = req.session; // directly access the session via express-session
+        const sessionId = req.session.id; // session ID from express-session
+
+        // check if username exists in session
+        if (!session || !session.userName) {
+            return res.status(400).json({ error: 'Username is required to create a room.' });
+        }
+
+        // check if a room already exists with the same owner
+        const existingOwnedRoom = await Room.findOne({ owner: sessionId });
         if (existingOwnedRoom) {
             return res.status(400).json({ error: 'You already own a room.' });
         }
 
         // check if the user is already in any room
-        const existingJoinedRoom = await Room.findOne({ 'joinedUsers.userId': req.body.userId });
-
+        const existingJoinedRoom = await Room.findOne({ 'users': sessionId });
         if (existingJoinedRoom) {
             return res.status(400).json({ error: 'You are already in a room.' });
         }
 
         const roomCode = await generateUniqueRoomCode();
-        // using schema to construct a new room document
+        // Construct a new room document
         const newRoom = new Room({
             code: roomCode,
-            owner: req.body.userId,
-            users: [req.body.userId], // added as user
-            maxUsers: req.body.maxUsers || 10, // sample room testing
-            initiallyMuted: req.body.initiallyMuted || false // sample room testing
+            owner: sessionId, // use session ID as owner
+            users: [sessionId], // add the session ID as a user
+            maxUsers: req.body.maxUsers || 10,
+            initiallyMuted: req.body.initiallyMuted || false
         });
-        await newRoom.save(); // saves new room to database, waits before cont.
-        res.json({ roomCode }); // response back to client
+        await newRoom.save();
+
+        // update session data
+        session.isInRoom = true;
+        session.roomCode = roomCode;
+        session.save(); // don't forget to save session changes
+
+        res.json({ roomCode });
     } catch (error) {
         res.status(500).json({ error: 'Error creating room. Please try again.' });
     }
 });
+
 
 // joining room logic
 router.post('/join', async (req, res) => {
