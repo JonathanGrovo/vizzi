@@ -4,7 +4,6 @@ import axios from 'axios';
 
 // import components
 import JoinRoom from './components/JoinRoom';
-import UserSetup from './components/UserSetup';
 import CreateRoom from './components/CreateRoom';
 import LandingPage from './components/LandingPage';
 import Room from './components/Room';
@@ -82,7 +81,6 @@ function App() {
           <div>
                 <Routes>
                   <Route path="/" element={<LandingPage onAction={setAction} />} />
-                  <Route path="/setup" element={<UserSetup onNameSet={handleNameSet} action={action} />} />
                   <Route path="/join" element={<JoinRoom userId={userId} name={name} />} />
                   <Route path="/create" element={<CreateRoom userId={userId} />} />
                   <Route path="/room/:roomCode" element={<Room />} />
