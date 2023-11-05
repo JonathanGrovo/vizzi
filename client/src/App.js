@@ -24,14 +24,16 @@ axios.defaults.withCredentials = true;
 // });
 
 // component for navigation
-function NavigationHandler({ userId, isInRoom, roomCode }) {
+function NavigationHandler({ isInRoom, roomCode }) {
   const navigate = useNavigate(); // get navigate function
 
   useEffect(() => {
-    if (userId && isInRoom && roomCode) {
+    console.log(`NavigationHandler effect triggered: isInRoom: ${isInRoom}, roomCode: ${roomCode}`);
+    if (isInRoom && roomCode) {
+      console.log('Navigating to room:', roomCode);
       navigate(`/room/${roomCode}`);
     }
-  }, [userId, isInRoom, roomCode]); // run when any of these change
+  }, [isInRoom, roomCode]); // run when any of these change
 
   return null;
 }
@@ -39,50 +41,50 @@ function NavigationHandler({ userId, isInRoom, roomCode }) {
 function App() {
     const [name, setName] = useState('');
     const [action, setAction] = useState(''); // join or create
-    const [userId, setUserId] =  useState('');
     const [roomCode, setRoomCode] = useState(null); // room id initially set to null
     const [isInRoom, setIsInRoom] = useState(false); // not initially in room
   
     const [isLoading, setIsLoading] = useState(true); // for loading states
 
     const handleNameSet = (nameValue, userIdValue) => {
+      console.log('Setting name and userID', nameValue);
       setName(nameValue);
-      setUserId(userIdValue);
     };
   
+    // check to see if our session is already in a room
     useEffect(() => {
-      axios.get('/api/sessions/checksession', {
-        withCredentials: true,
-      })
+      console.log('Initial session check starting');
+      axios.get('/api/sessions/active-room')
       .then(response => {
+        console.log('Initial session check completed', response.data);
         const data = response.data;
-        if (data.userId) {
-          setUserId(data.userId);
-        }
-        if (data.isInRoom) {
-          setIsInRoom(data.isInRoom);
-        }
-        if (data.roomCode) {
-          setRoomCode(data.roomCode);
+        if (data && data.activeRoom) {
+          // An active room was found in the session
+          setRoomCode(data.activeRoom);
+          setIsInRoom(true);
+        } else {
+          // No active room was found, but it's not an error
+          setRoomCode(null);
+          setIsInRoom(false);
         }
       })
       .catch(error => {
-        console.error("There was a problem checking the session:", error);
+        console.error("There was a problem with the request:", error);
       });
-    }, []); // Empty dependency array means this useEffect runs once when the component mounts
-  
+    }, []);
+    
     const handleAction = (actionType) => {
       setAction(actionType);
     };
   
     return (
       <Router>
-        <NavigationHandler userId={userId} isInRoom={isInRoom} roomCode={roomCode} />
+        <NavigationHandler isInRoom={isInRoom} roomCode={roomCode} />
           <div>
                 <Routes>
                   <Route path="/" element={<LandingPage onAction={setAction} />} />
-                  <Route path="/join" element={<JoinRoom userId={userId} name={name} />} />
-                  <Route path="/create" element={<CreateRoom userId={userId} />} />
+                  <Route path="/join" element={<JoinRoom name={name} />} />
+                  <Route path="/create" element={<CreateRoom />} />
                   <Route path="/room/:roomCode" element={<Room />} />
                 </Routes>
           </div>
@@ -90,31 +92,4 @@ function App() {
     );
 }
 
-// for checking if a user is on a room or not
-async function checkIsInRoom() {
-  console.log('checkisinroom hit');
-  try {
-    // get request
-    const response = await axios.get("/api/sessions/checkroom", {
-      withCredentials: true
-    });
-    return response.data.inRoom;
-  } catch (error) {
-    console.error("There was a problem checking if in room:", error);
-  }
-}
-
-// gets the id of the room
-async function getRoomCode() {
-  try {
-    const response = await axios.get("/api/sessions/checkroom", {
-      withCredentials: true
-    });
-    return response.data.roomCode;
-  } catch (error) {
-    console.error("There was a problem getting the room code:", error);
-  }
-}
-
 export default App;
-

@@ -9,7 +9,7 @@ function CreateRoom({ userId }) {
   // when user clicks to create room
   const handleCreateRoom = async () => {
     try {
-      const response = await fetch('/api/rooms/', { // Replace with your server URL and route
+      const response = await fetch('/api/rooms/create', { // Replace with your server URL and route
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

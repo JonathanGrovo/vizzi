@@ -19,83 +19,103 @@ async function generateUniqueRoomCode(length = 6) {
 
 // route definitions:
 
-// creating room logic
-router.post('/', async (req, res) => {
+// for validating if a room exists (prior to username prompt)
+router.post('/validate', async (req, res) => {
+    const { roomCode } = req.body; // gets room code from req body
 
-    console.log('hitting room creation');
     try {
-        const session = req.session; // directly access the session via express-session
-        const sessionId = req.session.id; // session ID from express-session
-
-        // check if username exists in session
-        if (!session || !session.userName) {
-            return res.status(400).json({ error: 'Username is required to create a room.' });
+        // finds the room if it exists
+        const room = await Room.findOne({ code: roomCode });
+        if (room) {
+            res.json({ valid: true });
+        } else {
+            res.status(404).json({ error: 'Room not found.' });
         }
+    } catch (error) {
+        res.status(500).json({ error: 'Error validating room. Please try again.' });
+    }
+});
 
-        // check if a room already exists with the same owner
-        const existingOwnedRoom = await Room.findOne({ owner: sessionId });
-        if (existingOwnedRoom) {
-            return res.status(400).json({ error: 'You already own a room.' });
-        }
+// room creation logic
+router.post('/create', async (req, res) => {
+    // Check if a username is set in the session
+    if (!req.session || !req.session.username) {
+        return res.status(400).json({ error: 'Username is required to create a room.' });
+    }
 
-        // check if the user is already in any room
-        const existingJoinedRoom = await Room.findOne({ 'users': sessionId });
-        if (existingJoinedRoom) {
+    try {
+        const session = req.session;
+        const sessionId = session.id; // session ID from express-session
+
+        // Check if the user is already in any room
+        const existingMembership = await Room.findOne({ users: sessionId });
+        if (existingMembership) {
             return res.status(400).json({ error: 'You are already in a room.' });
         }
 
+        // Generate a unique room code
         const roomCode = await generateUniqueRoomCode();
-        // Construct a new room document
+        
+        // Construct a new room document using the Room model
         const newRoom = new Room({
             code: roomCode,
             owner: sessionId, // use session ID as owner
-            users: [sessionId], // add the session ID as a user
-            maxUsers: req.body.maxUsers || 10,
-            initiallyMuted: req.body.initiallyMuted || false
+            users: [sessionId], // add the session ID to the users array
+            settings: { // Accept settings from the request body, with defaults
+                maxUsers: req.body.maxUsers || 10,
+                muteOnEntry: req.body.muteOnEntry || false
+            }
         });
+
+        // Save the new room to the database
         await newRoom.save();
 
-        // update session data
-        session.isInRoom = true;
-        session.roomCode = roomCode;
-        session.save(); // don't forget to save session changes
+        // Update session to reflect room ownership and membership
+        session.activeRoom = roomCode; // or session.roomCode if you prefer that naming
+        // await session.save();
 
-        res.json({ roomCode });
+        res.status(201).json({ roomCode });
     } catch (error) {
         res.status(500).json({ error: 'Error creating room. Please try again.' });
     }
 });
 
-
-// joining room logic
+// logic for joining a room
 router.post('/join', async (req, res) => {
+    // if no session exists, or if no username exists for the session
+    if (!req.session || !req.session.username) {
+        return res.status(400).json({ error: 'Username is required to join a room.' });
+    }
+
     try {
         // query for finding room with code matching one sent in req body, not depending on case
         const room = await Room.findOne({ code: { $regex: new RegExp(`^${req.body.roomCode}$`, 'i') } });
 
-        if (!room) { // if a room was not found
-            return res.status(400).json({ error: 'Invalid room code.' });
+        if (!room) { // if room with given code does not exist
+            return res.status(404).json({ error: 'Invalid room code.' });
         }
 
-        // check if room has reaached capacity
-        if (room.users.length >= room.maxUsers) {
+        // check if room has reached capacity
+        if (room.users.length >= room.settings.maxUsers) {
             return res.status(400).json({ error: 'Room is full.' });
         }
 
-        const user = await User.findById(req.body.userId); // searching for user based on user id
+        const sessionId = req.session.id;
 
         // Check if user is already in the room they're trying to join
-        if (user.roomId && user.roomId.toString() === room._id.toString()) {
+        if (room.users.includes(sessionId)) {
             return res.status(400).json({ error: 'You are already in this room.' });
         }
 
-        user.roomId = room._id; // roomId of user is id of room being joined
-        await user.save(); // saves to database
-
         // add the user to the room's users array without duplicates
-        await Room.updateOne({ _id: room._id }, { $addToSet: { users: user._id } });
+        room.users.push(sessionId); // Alternatively use $addToSet as you did before
+        await room.save();
 
-        res.json({ message: 'Joined room successfully!' });
+        // Set room code in session to indicate user has joined the room
+        req.session.activeRoom = room.code;
+        // await req.session.save();
+
+        res.status(200).json({ message: 'Joined room successfully!' });
     } catch (error) {
         res.status(500).json({ error: 'Error joining room. Please try again.' });
     }
@@ -103,65 +123,65 @@ router.post('/join', async (req, res) => {
 
 // leaving room logic
 router.post('/leave', async (req, res) => {
+    if (!req.session || !req.session.activeRoom) {
+        return res.status(400).json({ error: 'You are not in a room.' });
+    }
+
     try {
-        const room = await Room.findOne({ code: req.body.roomCode });
-        const user = await User.findById(req.body.userId); // searching for user based on user id
+        const roomId = req.session.activeRoom;
+        const room = await Room.findOne({ code: roomId });
 
-        if (room && user) { // if the room and the user specified are found
-
-            // If the user is the owner and there are more users in the room
-            if (String(room.owner) === String(user._id) && room.users.length > 1) {
-                // The frontend should prompt the owner to pick a new owner and send their ID in the request
-                if (!req.body.newOwnerId) {
-                    return res.status(400).json({ message: 'Please provide a new room owner.' });
-                }
-
-                const newOwner = await User.findById(req.body.newOwnerId);
-                if (!newOwner) {
-                    return res.status(400).json({ message: 'New owner not found.' });
-                }
-
-                room.owner = newOwner._id;
-                await room.save();
-            }
-
-            // Remove the user from the room's users array
-            await Room.updateOne({ _id: room._id }, { $pull: { users: user._id } });
-
-            user.roomId = null; // Set roomId to null since we are leaving a room
-            await user.save();
-
-            // fetch updated room data to check remaining users
-            const updatedRoom = await Room.findById(room._id);
-
-            // if no users left, delete the room
-            if (updatedRoom.users.length === 0) {
-                await Room.deleteOne({ _id: updatedRoom._id });
-                return res.json({ message: 'Left room successfully and room has been deleted as it is empty.' });
-            }
-
-            res.json({ message: 'Left room successfully!' });
-        } else {
-            res.status(400).json({ error: 'Invalid room code' });
+        if (!room) {
+            return res.status(404).json({ error: 'Room not found.' });
         }
+
+        // Remove the user from the room's users array
+        room.users.pull(req.session.sessionId);
+
+        // Check if the owner is trying to leave
+        if (req.session.sessionId === room.owner) {
+            // If there are other users in the room, ask for ownership transfer
+            if (room.users.length > 0) {
+                // This is a placeholder. Implement the ownership transfer logic
+                // based on your application's requirements.
+                return res.status(403).json({ error: 'Please transfer ownership before leaving the room.' });
+            } else {
+                // If the owner is the last to leave, delete the room.
+                await Room.deleteOne({ _id: room._id });
+                req.session.destroy();
+                return res.json({ message: 'Left room and deleted it successfully.' });
+            }
+        }
+
+        // If not the owner, just leave the room.
+        await room.save();
+
+        // Clear the activeRoom from the session
+        delete req.session.activeRoom;
+
+        // Consider whether you really want to destroy the session here.
+        // If you have other data in the session you might just want to save the changes.
+        // req.session.destroy();
+
+        // Save the session state after making changes
+        await req.session.save();
+
+        res.json({ message: 'Left room successfully.' });
+
     } catch (error) {
         res.status(500).json({ error: 'Error leaving room. Please try again.' });
     }
 });
 
-
 // getting room details logic
-router.get('/:roomCode', async (req, res) => { // :roomCode is a route parameter
+router.get('/:roomCode', async (req, res) => {
     try {
-        // look for roomCode matching one provided in url
-        const room = await Room.findOne({ code: req.params.roomCode })
-                            .populate('owner', 'name') // get owner's name
-                            .populate('users', 'name') // gets names of all users in room
+        const room = await Room.findOne({ code: req.params.roomCode });
         if (room) {
-            // array of all users currently in the room
-            const usersInRoom = await User.find({ roomId: room._id });
-            res.json({ room, users: usersInRoom }); // room details and list of users in room as JSON
-        } else { // room wasn't found
+            // Simplified response as there is no user name to populate.
+            // This response only includes session IDs of users in the room.
+            res.json({ room, users: room.users });
+        } else {
             res.status(404).json({ error: 'Room not found.' });
         }
     } catch (error) {
@@ -169,32 +189,34 @@ router.get('/:roomCode', async (req, res) => { // :roomCode is a route parameter
     }
 });
 
+
 // room deletion upon owner request logic
-router.delete('/delete', async (req, res) => {
+router.delete('/delete/:roomCode', async (req, res) => {
+    // Use params for sensitive actions like deleting.
+    const roomCode = req.params.roomCode;
+
     try {
-        const room = await Room.findOne({ code: req.body.roomCode });
-        const user = await User.findById(req.body.userId);
+        const room = await Room.findOne({ code: roomCode });
 
-        if (!room || !user) {
-            return res.status(400).json({ error: 'Invalid room code or user.' });
+        if (!room) {
+            return res.status(404).json({ error: 'Room not found.' });
         }
 
-        // ensure the user is the owner of the room
-        if (String(room.owner) !== String(user._id)) {
-            return res.status(403).json({ error: 'Only the owner can delete the room' });
+        if (String(room.owner) !== String(req.session.sessionId)) {
+            return res.status(403).json({ error: 'Only the owner can delete the room.' });
         }
 
-        // set roomId to null for all users in the room
-        await User.updateMany({ roomId: room._id }, { $set: { roomId: null } });
+        // If there is a User model or equivalent, update their roomId to null.
+        // Otherwise, this step is not necessary.
+        // await User.updateMany({ roomId: room._id }, { $set: { roomId: null } });
 
-        // delete the room
         await Room.deleteOne({ _id: room._id });
-
         res.json({ message: 'Room deleted successfully!' });
     } catch (error) {
         res.status(500).json({ error: 'Error deleting room. Please try again.' });
     }
-})
+});
+
 
 // other room related routes go here
 
