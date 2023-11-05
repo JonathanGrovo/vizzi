@@ -9,10 +9,6 @@ function Room() {
     // Fetch messages and other room details using roomCode and userId
   }, [roomCode, userId]);
 
-  useEffect(() => {
-    console.log('userId:', userId);
-}, [userId]);
-
   return (
     <div>
       <h1>You are in room {roomCode}</h1>

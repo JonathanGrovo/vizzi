@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Route, Routes, useNavigate } from 'react-router-dom'; 
 import axios from 'axios';
 
@@ -23,20 +23,20 @@ axios.defaults.withCredentials = true;
 //     // handle real time event
 // });
 
-// component for navigation
-function NavigationHandler({ isInRoom, roomCode }) {
-  const navigate = useNavigate(); // get navigate function
+// // component for navigation
+// function NavigationHandler({ isInRoom, roomCode }) {
+//   const navigate = useNavigate(); // get navigate function
 
-  useEffect(() => {
-    console.log(`NavigationHandler effect triggered: isInRoom: ${isInRoom}, roomCode: ${roomCode}`);
-    if (isInRoom && roomCode) {
-      console.log('Navigating to room:', roomCode);
-      navigate(`/room/${roomCode}`);
-    }
-  }, [isInRoom, roomCode]); // run when any of these change
+//   useEffect(() => {
+//     console.log(`NavigationHandler effect triggered: isInRoom: ${isInRoom}, roomCode: ${roomCode}`);
+//     if (isInRoom && roomCode) {
+//       console.log('Navigating to room:', roomCode);
+//       navigate(`/room/${roomCode}`);
+//     }
+//   }, [isInRoom, roomCode]); // run when any of these change
 
-  return null;
-}
+//   return null;
+// }
 
 function App() {
     const [name, setName] = useState('');
@@ -50,28 +50,38 @@ function App() {
       console.log('Setting name and userID', nameValue);
       setName(nameValue);
     };
-  
-    // check to see if our session is already in a room
+
+    const mounted = useRef(false);
+
+    // how to prevent double mounting
     useEffect(() => {
-      console.log('Initial session check starting');
-      axios.get('/api/sessions/active-room')
-      .then(response => {
-        console.log('Initial session check completed', response.data);
-        const data = response.data;
-        if (data && data.activeRoom) {
-          // An active room was found in the session
-          setRoomCode(data.activeRoom);
-          setIsInRoom(true);
-        } else {
-          // No active room was found, but it's not an error
-          setRoomCode(null);
-          setIsInRoom(false);
-        }
-      })
-      .catch(error => {
-        console.error("There was a problem with the request:", error);
-      });
+      if (!mounted.current) {
+        mounted.current = true;
+        console.log('does this print twice');
+      }
     }, []);
+  
+    // // check to see if our session is already in a room
+    // useEffect(() => {
+    //   console.log('Initial session check starting');
+    //   axios.get('/api/sessions/active-room')
+    //   .then(response => {
+    //     console.log('Initial session check completed', response.data);
+    //     const data = response.data;
+    //     if (data && data.activeRoom) {
+    //       // An active room was found in the session
+    //       setRoomCode(data.activeRoom);
+    //       setIsInRoom(true);
+    //     } else {
+    //       // No active room was found, but it's not an error
+    //       setRoomCode(null);
+    //       setIsInRoom(false);
+    //     }
+    //   })
+    //   .catch(error => {
+    //     console.error("There was a problem with the request:", error);
+    //   });
+    // }, []);
     
     const handleAction = (actionType) => {
       setAction(actionType);
@@ -79,7 +89,7 @@ function App() {
   
     return (
       <Router>
-        <NavigationHandler isInRoom={isInRoom} roomCode={roomCode} />
+        {/* <NavigationHandler isInRoom={isInRoom} roomCode={roomCode} /> */}
           <div>
                 <Routes>
                   <Route path="/" element={<LandingPage onAction={setAction} />} />
