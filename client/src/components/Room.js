@@ -1,20 +1,18 @@
-import React, { useEffect } from 'react';
+// components/Room.js
+import React from 'react';
+import { useSocket } from '../hooks/useSocket';
 import { useParams } from 'react-router-dom';
 
-function Room() {
-  const { roomCode } = useParams();
-  const userId = localStorage.getItem('userId');
-  
-  useEffect(() => {
-    // Fetch messages and other room details using roomCode and userId
-  }, [roomCode, userId]);
+const Room = () => {
+  // establish WebSocket connection when component mounts
+  let { roomCode } = useParams();
+  useSocket(roomCode);
 
   return (
     <div>
       <h1>You are in room {roomCode}</h1>
-      {/* Chat interface here */}
     </div>
   );
-}
+};
 
 export default Room;

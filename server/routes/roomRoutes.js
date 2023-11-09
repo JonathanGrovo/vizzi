@@ -27,7 +27,13 @@ router.post('/validate', async (req, res) => {
         // finds the room if it exists
         const room = await Room.findOne({ code: roomCode });
         if (room) {
-            res.json({ valid: true });
+            // Check if the room is full
+            if (room.users.length < room.settings.maxUsers) {
+                res.json({ valid: true, full: false });
+            } else {
+                // The room is full
+                res.json({ valid: true, full: true, error: 'Room is full.' });
+            }
         } else {
             res.status(404).json({ error: 'Room not found.' });
         }
