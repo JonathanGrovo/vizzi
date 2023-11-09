@@ -6,10 +6,15 @@ module.exports = function (io) {
 
         // Handle a user joining a room
         socket.on('join room', (roomCode) => {
-            console.log(`User with session ID ${socket.sessionID} is joining room ${roomCode}`);
             socket.join(roomCode);
-            // You may want to emit an event to the room to announce that a new user has joined
-            socket.to(roomCode).emit('user joined', { id: socket.id });
+
+            // access username from the session
+            const username = socket.request.session.username;
+
+            // emit to all other users in the room
+            socket.to(roomCode).emit('user joined', { username, id: socket.id });
+
+            console.log(`User ${username} with session ID ${socket.sessionID} has joined room ${roomCode}`);
         });
 
         // Handle a user leaving a room

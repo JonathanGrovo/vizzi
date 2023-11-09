@@ -1,25 +1,30 @@
 // hooks/useSocket.js
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import io from 'socket.io-client';
 
 const SOCKET_SERVER_URL = 'http://localhost:5000';
 
 export const useSocket = (roomCode) => {
-    useEffect(() => { // upon room component render
-        const socket = io(SOCKET_SERVER_URL, {
+    const socketRef = useRef(null);
+
+    useEffect(() => {
+        // initialize socket connection
+        socketRef.current = io('http://localhost:5000', {
             withCredentials: true,
         });
 
+        // emit the join room event
         if (roomCode) {
-            socket.emit('join room', roomCode);
-        } else {
-            console.log('no roomcode passed');
+            socketRef.current.emit('join room', roomCode);
         }
 
-        // clean up on unmount
+        // return cleanup function
         return () => {
-            socket.emit('leave room', roomCode);
-            socket.disconnect();
+            if (socketRef.current) {
+                socketRef.current.disconnect();
+            }
         };
     }, [roomCode]);
-};
+
+    return socketRef.current; // return the socket instance
+}
