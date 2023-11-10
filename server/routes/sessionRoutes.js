@@ -1,12 +1,6 @@
 const express = require('express');
 const router = express.Router();
 
-// // check if user is in room
-// router.get('/status', (req, res) => {
-//     const isInRoom = req.session && !!req.session.activeRoom;
-//     res.json({ isInRoom });
-// });
-
 // set or update username for the session
 router.post('/username', (req, res) => {
   if (req.session) {

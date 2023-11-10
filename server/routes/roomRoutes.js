@@ -223,7 +223,6 @@ router.delete('/delete/:roomCode', async (req, res) => {
     }
 });
 
-
 // other room related routes go here
 
 // export router
