@@ -1,12 +1,6 @@
 const mongoose = require('mongoose');
 
 const roomSchema = new mongoose.Schema({ 
-    // unique room ID
-    code: {
-        type: String,
-        required: true,
-        unique: true
-    },
     createdAt: {
         type: Date,
         default: Date.now

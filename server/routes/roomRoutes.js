@@ -2,53 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Room = require('../models/Room');
 
-// function for generating unique room codes
-async function generateUniqueRoomCode(length = 6) {
-    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let roomCode;
-
-    do {
-        roomCode = '';
-        for (let i = 0; i < length; i++) {
-            roomCode += characters.charAt(Math.floor(Math.random() * characters.length));
-        }
-    } while (await Room.findOne({ code: roomCode })); //loops until code not found in database
-
-    return roomCode;
-}
-
-// route definitions:
-
-// for validating if a room exists (prior to username prompt)
-router.post('/validate', async (req, res) => {
-    const { roomCode } = req.body; // gets room code from req body
-
-    try {
-        // finds the room if it exists
-        const room = await Room.findOne({ code: roomCode });
-        if (room) {
-            // Check if the room is full
-            if (room.users.length < room.settings.maxUsers) {
-                res.json({ valid: true, full: false });
-            } else {
-                // The room is full
-                res.json({ valid: true, full: true, error: 'Room is full.' });
-            }
-        } else {
-            res.status(404).json({ error: 'Room not found.' });
-        }
-    } catch (error) {
-        res.status(500).json({ error: 'Error validating room. Please try again.' });
-    }
-});
-
 // room creation logic
 router.post('/create', async (req, res) => {
-    // Check if a username is set in the session
-    if (!req.session || !req.session.username) {
-        return res.status(400).json({ error: 'Username is required to create a room.' });
-    }
-
     try {
         const session = req.session;
         const sessionId = session.id; // session ID from express-session
@@ -58,13 +13,9 @@ router.post('/create', async (req, res) => {
         if (existingMembership) {
             return res.status(400).json({ error: 'You are already in a room.' });
         }
-
-        // Generate a unique room code
-        const roomCode = await generateUniqueRoomCode();
         
         // Construct a new room document using the Room model
         const newRoom = new Room({
-            code: roomCode,
             owner: sessionId, // use session ID as owner
             users: [sessionId], // add the session ID to the users array
             settings: { // Accept settings from the request body, with defaults
@@ -73,53 +24,50 @@ router.post('/create', async (req, res) => {
             }
         });
 
-        // Save the new room to the database
-        await newRoom.save();
+        // save new room to the database
+        const savedRoom = await newRoom.save();
 
         // Update session to reflect room ownership and membership
-        session.activeRoom = roomCode; // or session.roomCode if you prefer that naming
-        // await session.save();
+        session.activeRoom = savedRoom._id;
 
-        res.status(201).json({ roomCode });
+        res.status(201).json({ roomId: savedRoom._id }); // return _id for frontend use
     } catch (error) {
-        res.status(500).json({ error: 'Error creating room. Please try again.' });
+        // res.status(500).json({ error: 'Error creating room. Please try again.' });
+        console.error('Error saving room:', error);
+        res.status(500).json({ error: error.message || 'Error creating room. Please try again.' });
     }
 });
 
-// logic for joining a room
-router.post('/join', async (req, res) => {
-    // if no session exists, or if no username exists for the session
-    if (!req.session || !req.session.username) {
-        return res.status(400).json({ error: 'Username is required to join a room.' });
-    }
+// logic for joining a room using room ID in the URL
+router.get('/join/:roomId', async (req, res) => {
+    const { roomId } = req.params;
 
     try {
-        // query for finding room with code matching one sent in req body, not depending on case
-        const room = await Room.findOne({ code: { $regex: new RegExp(`^${req.body.roomCode}$`, 'i') } });
+        // Find room by _id
+        const room = await Room.findById(roomId);
 
-        if (!room) { // if room with given code does not exist
-            return res.status(404).json({ error: 'Invalid room code.' });
+        if (!room) {
+            return res.status(404).json({ error: 'Room not found.' });
         }
 
-        // check if room has reached capacity
+        // Check if room has reached capacity
         if (room.users.length >= room.settings.maxUsers) {
             return res.status(400).json({ error: 'Room is full.' });
         }
 
         const sessionId = req.session.id;
 
-        // Check if user is already in the room they're trying to join
+        // Check if user is already in the room
         if (room.users.includes(sessionId)) {
             return res.status(400).json({ error: 'You are already in this room.' });
         }
 
-        // add the user to the room's users array without duplicates
-        room.users.push(sessionId); // Alternatively use $addToSet as you did before
+        // Add user to room's users array
+        room.users.push(sessionId);
         await room.save();
 
-        // Set room code in session to indicate user has joined the room
-        req.session.activeRoom = room.code;
-        // await req.session.save();
+        // Set room _id in session to indicate user has joined the room
+        req.session.activeRoom = roomId;
 
         res.status(200).json({ message: 'Joined room successfully!' });
     } catch (error) {
@@ -135,57 +83,46 @@ router.post('/leave', async (req, res) => {
 
     try {
         const roomId = req.session.activeRoom;
-        const room = await Room.findOne({ code: roomId });
+        // Find room by _id instead of code
+        const room = await Room.findById(roomId);
 
         if (!room) {
             return res.status(404).json({ error: 'Room not found.' });
         }
 
         // Remove the user from the room's users array
-        room.users.pull(req.session.sessionId);
+        room.users.pull(req.session.id); // Ensure you're using the correct session identifier
 
         // Check if the owner is trying to leave
-        if (req.session.sessionId === room.owner) {
-            // If there are other users in the room, ask for ownership transfer
-            if (room.users.length > 0) {
-                // This is a placeholder. Implement the ownership transfer logic
-                // based on your application's requirements.
-                return res.status(403).json({ error: 'Please transfer ownership before leaving the room.' });
-            } else {
-                // If the owner is the last to leave, delete the room.
-                await Room.deleteOne({ _id: room._id });
-                req.session.destroy();
-                return res.json({ message: 'Left room and deleted it successfully.' });
-            }
+        if (req.session.id === room.owner) {
+            // Ownership transfer logic here
+            // ...
+        } else {
+            // If not the owner, just leave the room.
+            await room.save();
+
+            // Clear the activeRoom from the session
+            delete req.session.activeRoom;
+
+            // Consider whether you really want to destroy the session here.
+            // If you have other data in the session you might just want to save the changes.
+            // req.session.destroy();
+
+            // Save the session state after making changes
+            await req.session.save();
+
+            res.json({ message: 'Left room successfully.' });
         }
-
-        // If not the owner, just leave the room.
-        await room.save();
-
-        // Clear the activeRoom from the session
-        delete req.session.activeRoom;
-
-        // Consider whether you really want to destroy the session here.
-        // If you have other data in the session you might just want to save the changes.
-        // req.session.destroy();
-
-        // Save the session state after making changes
-        await req.session.save();
-
-        res.json({ message: 'Left room successfully.' });
-
     } catch (error) {
         res.status(500).json({ error: 'Error leaving room. Please try again.' });
     }
 });
 
 // getting room details logic
-router.get('/:roomCode', async (req, res) => {
+router.get('/:roomId', async (req, res) => {
     try {
-        const room = await Room.findOne({ code: req.params.roomCode });
+        const room = await Room.findById(req.params.roomId);
         if (room) {
-            // Simplified response as there is no user name to populate.
-            // This response only includes session IDs of users in the room.
             res.json({ room, users: room.users });
         } else {
             res.status(404).json({ error: 'Room not found.' });
@@ -195,26 +132,20 @@ router.get('/:roomCode', async (req, res) => {
     }
 });
 
-
 // room deletion upon owner request logic
-router.delete('/delete/:roomCode', async (req, res) => {
-    // Use params for sensitive actions like deleting.
-    const roomCode = req.params.roomCode;
+router.delete('/delete/:roomId', async (req, res) => {
+    const roomId = req.params.roomId;
 
     try {
-        const room = await Room.findOne({ code: roomCode });
+        const room = await Room.findById(roomId);
 
         if (!room) {
             return res.status(404).json({ error: 'Room not found.' });
         }
 
-        if (String(room.owner) !== String(req.session.sessionId)) {
+        if (String(room.owner) !== String(req.session.id)) {
             return res.status(403).json({ error: 'Only the owner can delete the room.' });
         }
-
-        // If there is a User model or equivalent, update their roomId to null.
-        // Otherwise, this step is not necessary.
-        // await User.updateMany({ roomId: room._id }, { $set: { roomId: null } });
 
         await Room.deleteOne({ _id: room._id });
         res.json({ message: 'Room deleted successfully!' });

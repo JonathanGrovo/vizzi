@@ -5,45 +5,44 @@ import axios from 'axios';
 // import components
 import JoinRoom from './components/JoinRoom';
 import CreateRoom from './components/CreateRoom';
-import LandingPage from './components/LandingPage';
 import Room from './components/Room';
+
+// import hooks
+import useSkipRedirection from './hooks/useSkipRedirection';
 
 axios.defaults.baseURL = 'http://localhost:5000'; // backend url
 axios.defaults.withCredentials = true;
 
-// component for navigation
-function NavigationHandler({ isInRoom, roomCode }) {
+// global navigation component
+function NavigationHandler({ isInRoom, roomId }) {
   const navigate = useNavigate(); // get navigate function
 
   useEffect(() => {
-    console.log(`NavigationHandler effect triggered: isInRoom: ${isInRoom}, roomCode: ${roomCode}`);
-    if (isInRoom && roomCode) {
-      console.log('Navigating to room:', roomCode);
-      navigate(`/room/${roomCode}`);
+    console.log(`NavigationHandler effect triggered: isInRoom: ${isInRoom}, roomCode: ${roomId}`);
+    if (isInRoom && roomId) {
+      console.log('Navigating to room:', roomId);
+      navigate(`/room/${roomId}`);
     }
-  }, [isInRoom, roomCode]); // run when any of these change
+  }, [isInRoom, roomId]); // run when any of these change
 
   return null;
 }
 
 function App() {
-    const [name, setName] = useState('');
-    const [action, setAction] = useState(''); // join or create
-    const [roomCode, setRoomCode] = useState(null); // room id initially set to null
+    const [roomId, setRoomId] = useState(null); // room id initially set to null
     const [isInRoom, setIsInRoom] = useState(false); // not initially in room
   
-    const [isLoading, setIsLoading] = useState(true); // for loading states
+    // const navigate = useNavigate();
+    const skipRedirection = useSkipRedirection();
 
-    const handleNameSet = (nameValue, userIdValue) => {
-      console.log('Setting name and userID', nameValue);
-      setName(nameValue);
-    };
+    // const [isLoading, setIsLoading] = useState(true); // for loading states
     
     const mounted = useRef(false);
     
     useEffect(() => {
-      if (!mounted.current) {
-        mounted.current = true; // Set the mounted ref to true
+      // avoid global navigation on join links
+      if (!skipRedirection && !mounted.current) {
+        mounted.current = true;
         console.log('Initial session check starting');
         
         axios.get('/api/sessions/active-room')
@@ -52,11 +51,11 @@ function App() {
             const data = response.data;
             if (data && data.activeRoom) {
               // An active room was found in the session
-              setRoomCode(data.activeRoom);
+              setRoomId(data.activeRoom);
               setIsInRoom(true);
             } else {
               // No active room was found, but it's not an error
-              setRoomCode(null);
+              setRoomId(null);
               setIsInRoom(false);
             }
           })
@@ -64,24 +63,19 @@ function App() {
             console.error("There was a problem with the request:", error);
           });
       }
-    }, []); // The dependency array remains empty to emulate componentDidMount
-    
-    const handleAction = (actionType) => {
-      setAction(actionType);
-    };
+    }, [skipRedirection]); // path dependent
   
     return (
-      <Router>
-        <NavigationHandler isInRoom={isInRoom} roomCode={roomCode} />
+      <div>
+        <NavigationHandler isInRoom={isInRoom} roomId={roomId} />
           <div>
                 <Routes>
-                  <Route path="/" element={<LandingPage onAction={setAction} />} />
-                  <Route path="/join" element={<JoinRoom name={name} />} />
-                  <Route path="/create" element={<CreateRoom />} />
-                  <Route path="/room/:roomCode" element={<Room roomCode={roomCode}/>} />
+                  <Route path="/" element={<CreateRoom />} />
+                  <Route path="/join/:roomId" element={<JoinRoom />} />
+                  <Route path="/room/:roomId" element={<Room roomId={roomId}/>} />
                 </Routes>
           </div>
-      </Router>
+      </div>
     );
 }
 

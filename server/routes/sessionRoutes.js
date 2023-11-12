@@ -112,5 +112,14 @@ router.get('/active-room', (req, res) => {
     }
 });
 
+// GET endpoint to check if a username is set in the session
+router.get('/check-username', (req, res) => {
+  if (req.session && req.session.username) {
+    res.status(200).json({ username: req.session.username });
+  } else {
+    res.status(200).json({ username: null });
+  }
+});
+
   module.exports = router;
   
