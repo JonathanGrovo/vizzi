@@ -50,6 +50,19 @@ const Room = () => {
     }
   }
 
+  // function to handle (manual) room deletion
+  const deleteRoom = async () => {
+    try {
+      const response = await axios.delete(`/api/rooms/delete/${roomId}`);
+      if (response.status === 200) {
+        alert('Room deleted successfully');
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Error deleting room:', error);
+    }
+  }
+
   const mounted = useRef(false);
 
   // ensuring modal is not shown if username already set for session
@@ -78,14 +91,29 @@ const Room = () => {
   // if a Web Socket connection exists
   useEffect(() => {
     if (socket) {
+      // listener for 'user joined'
       socket.on('user joined', (data) => {
         setUsers(prevUsers => [...prevUsers, data.username]);
       });
+
+      // listener for 'room deleted'
+      socket.on('room deleted', () => {
+        alert('The room has been deleted.');
+        
+        // make request to server to clear activeRoom field in session
+        axios.post('/api/sessions/clear-active-room').then(() => {
+          navigate('/');
+        }).catch(error => {
+          console.error('Error clearing active room:', error);
+        });
+      });
+
       return () => {
         socket.off('user joined');
+        socket.off('room deleted');
       };
     }
-  }, [socket]);
+  }, [socket, navigate]);
 
   // when the user sets their username
   const handleUsernameSubmit = (enteredUsername) => {
@@ -93,11 +121,11 @@ const Room = () => {
     setShowModal(false);
   }
   
-
   return (
     <div className="room">
       <button onClick={copyJoinLink}>Copy Join Link</button>
-      <button onClick={leaveRoom}>Leave Room</button> {/* Leave room button */}
+      <button onClick={leaveRoom}>Leave Room</button>
+      <button onClick={deleteRoom}>Delete Room</button>
       <h2>Room: {roomId}</h2>
       {showModal && <UsernameModal onClose={handleUsernameSubmit} />}
       <ul>

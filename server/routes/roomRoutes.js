@@ -150,13 +150,44 @@ router.get('/:roomId', async (req, res) => {
     }
 });
 
+// endpoint for kicking users from the room
+router.post('/kick/:roomId', async (req, res) => {
+    const roomId = req.params.roomId;
+    const userToKick = req.body.sessionId; 
+
+    try {
+        const room = await Room.findById(roomId);
+        if (!room) {
+            return res.status(404).json({ error: 'Room not found.' });
+        }
+
+        // Check if the requester is the room owner
+        if (String(room.owner) !== String(req.session.id)) {
+            return res.status(403).json({ error: 'Only the owner can kick users.' });
+        }
+
+        // Check if the user to be kicked is in the room
+        const userIndex = room.users.findIndex(user => user.sessionId === userToKick);
+        if (userIndex === -1) {
+            return res.status(400).json({ error: 'User not found in the room.' });
+        }
+
+        // Remove the user from the room
+        room.users.splice(userIndex, 1);
+        await room.save();
+
+        res.json({ message: 'User kicked successfully.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Error kicking user. Please try again.' });
+    }
+});
+
 // room deletion upon owner request logic
 router.delete('/delete/:roomId', async (req, res) => {
     const roomId = req.params.roomId;
 
     try {
         const room = await Room.findById(roomId);
-
         if (!room) {
             return res.status(404).json({ error: 'Room not found.' });
         }
@@ -165,8 +196,20 @@ router.delete('/delete/:roomId', async (req, res) => {
             return res.status(403).json({ error: 'Only the owner can delete the room.' });
         }
 
+        console.log('1');
+
+
+        // notify room members of room deletion
+        io.to(roomId).emit('room deleted', { message: 'Room has been deleted by the owner.' });
+
+        console.log('2');
+
+
+        // delete the room
         await Room.deleteOne({ _id: room._id });
         res.json({ message: 'Room deleted successfully!' });
+
+        // Additional cleanup after deletion if needed
     } catch (error) {
         res.status(500).json({ error: 'Error deleting room. Please try again.' });
     }

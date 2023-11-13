@@ -121,5 +121,21 @@ router.get('/check-username', (req, res) => {
   }
 });
 
-  module.exports = router;
+// for clearing the activeRoom of a session
+router.post('/api/sessions/clear-active-room', (req, res) => {
+  if (req.session) {
+    delete req.session.activeRoom;
+    req.session.save((err) => {
+      if (err) {
+        res.status(500).json({ error: 'Error updating session.' });
+      } else {
+        res.json({ message: 'Session updated successfully.' });
+      } 
+    });
+  } else {
+  res.status(400).json({ error: 'Session not found.' });
+  }
+})
+
+module.exports = router;
   
