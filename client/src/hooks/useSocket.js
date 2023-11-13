@@ -15,7 +15,7 @@ export const useSocket = (roomCode) => {
 
         // emit the join room event
         if (roomCode) {
-            socketRef.current.emit('join room', roomCode);
+            socketRef.current.emit('join room', roomId);
         }
 
         // return cleanup function

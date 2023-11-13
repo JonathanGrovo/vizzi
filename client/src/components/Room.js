@@ -30,6 +30,26 @@ const Room = () => {
     }
   }
 
+  // function to handle leaving the room
+  const leaveRoom = async () => {
+    try {
+      // disconnect from websocket
+      if (socket) {
+        socket.disconnect();
+      }
+
+      // api call to backend to leave the room
+      const response = await axios.post(`/api/rooms/leave/${roomId}`);
+      if (response.status === 200) {
+        // navigate to homepage
+        navigate('/');
+      }
+    } catch (error) {
+      console.error('Error leaving room:', error);
+      // handle error
+    }
+  }
+
   const mounted = useRef(false);
 
   // ensuring modal is not shown if username already set for session
@@ -55,6 +75,7 @@ const Room = () => {
   }
   }, []);  
 
+  // if a Web Socket connection exists
   useEffect(() => {
     if (socket) {
       socket.on('user joined', (data) => {
@@ -66,6 +87,7 @@ const Room = () => {
     }
   }, [socket]);
 
+  // when the user sets their username
   const handleUsernameSubmit = (enteredUsername) => {
     setUsername(enteredUsername);
     setShowModal(false);
@@ -75,6 +97,7 @@ const Room = () => {
   return (
     <div className="room">
       <button onClick={copyJoinLink}>Copy Join Link</button>
+      <button onClick={leaveRoom}>Leave Room</button> {/* Leave room button */}
       <h2>Room: {roomId}</h2>
       {showModal && <UsernameModal onClose={handleUsernameSubmit} />}
       <ul>

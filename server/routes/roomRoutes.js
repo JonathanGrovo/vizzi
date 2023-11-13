@@ -9,7 +9,7 @@ router.post('/create', async (req, res) => {
         const sessionId = session.id; // session ID from express-session
 
         // Check if the user is already in any room
-        const existingMembership = await Room.findOne({ users: sessionId });
+        const existingMembership = await Room.findOne({ 'users.sessionId': sessionId });
         if (existingMembership) {
             return res.status(400).json({ error: 'You are already in a room.' });
         }
@@ -17,10 +17,13 @@ router.post('/create', async (req, res) => {
         // Construct a new room document using the Room model
         const newRoom = new Room({
             owner: sessionId, // use session ID as owner
-            users: [sessionId], // add the session ID to the users array
+            users: [{
+                sessionId: sessionId, // add the session ID to the users array
+                status: 'online',    // set initial status to online
+                lastActive: new Date() // set lastActive to the current time
+            }],
             settings: { // Accept settings from the request body, with defaults
                 maxUsers: req.body.maxUsers || 10,
-                muteOnEntry: req.body.muteOnEntry || false
             }
         });
 
@@ -28,7 +31,7 @@ router.post('/create', async (req, res) => {
         const savedRoom = await newRoom.save();
 
         // Update session to reflect room ownership and membership
-        session.activeRoom = savedRoom._id;
+        session.activeRoom = savedRoom._id.toString();
 
         res.status(201).json({ roomId: savedRoom._id }); // return _id for frontend use
     } catch (error) {
@@ -58,12 +61,16 @@ router.get('/join/:roomId', async (req, res) => {
         const sessionId = req.session.id;
 
         // Check if user is already in the room
-        if (room.users.includes(sessionId)) {
+        if (room.users.some(user => user.sessionId === sessionId)) {
             return res.status(400).json({ error: 'You are already in this room.' });
         }
 
         // Add user to room's users array
-        room.users.push(sessionId);
+        room.users.push({
+            sessionId: sessionId,
+            status: 'online',    // set user status to online
+            lastActive: new Date() // set lastActive to current time
+        });
         await room.save();
 
         // Set room _id in session to indicate user has joined the room
@@ -76,39 +83,50 @@ router.get('/join/:roomId', async (req, res) => {
 });
 
 // leaving room logic
-router.post('/leave', async (req, res) => {
+router.post('/leave/:roomId', async (req, res) => {
     if (!req.session || !req.session.activeRoom) {
         return res.status(400).json({ error: 'You are not in a room.' });
     }
 
     try {
         const roomId = req.session.activeRoom;
-        // Find room by _id instead of code
+        const sessionId = req.session.id;
+        // Find room by _id
         const room = await Room.findById(roomId);
 
         if (!room) {
             return res.status(404).json({ error: 'Room not found.' });
         }
 
-        // Remove the user from the room's users array
-        room.users.pull(req.session.id); // Ensure you're using the correct session identifier
+        // Check if the user is in the room
+        const userIndex = room.users.findIndex(user => user.sessionId === sessionId);
+        if (userIndex === -1) {
+            return res.status(400).json({ error: 'You are not in this room.' });
+        }
 
-        // Check if the owner is trying to leave
-        if (req.session.id === room.owner) {
-            // Ownership transfer logic here
-            // ...
+        // Remove the user from the room's users array
+        room.users.splice(userIndex, 1);
+
+        // check if the room is now empty
+        if (room.users.length === 0) {
+            // delete the room as it's empty
+            await Room.deleteOne({ _id: roomId });
+
+            // clear the activeRoom of the session
+            delete req.session.activeRoom;
+            await req.session.save();
+
+            res.json({ message: 'Room deleted successfully as it was empty.' });
         } else {
-            // If not the owner, just leave the room.
+            // Check if the owner is trying to leave
+            if (sessionId === room.owner) {
+                room.owner = room.users[0].sessionId;
+            }
+
             await room.save();
 
             // Clear the activeRoom from the session
             delete req.session.activeRoom;
-
-            // Consider whether you really want to destroy the session here.
-            // If you have other data in the session you might just want to save the changes.
-            // req.session.destroy();
-
-            // Save the session state after making changes
             await req.session.save();
 
             res.json({ message: 'Left room successfully.' });

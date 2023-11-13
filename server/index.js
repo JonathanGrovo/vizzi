@@ -51,17 +51,6 @@ store.on('error', function(error) {
     // Add more robust error handling here
 });
 
-// app.use(session({
-//     secret: SESSION_SECRET,
-//     resave: false,
-//     saveUninitialized: true,
-//     store: store,
-//     cookie: { 
-//         secure: process.env.NODE_ENV === 'production', // Use env variable to toggle this
-//         maxAge: 1000 * 60 * 60 * 2 // 2 hours
-//     }
-// }));
-
 const sessionMiddleware = session({
     secret: SESSION_SECRET,
     resave: false,
@@ -95,15 +84,6 @@ io.use((socket, next) => {
         next(new Error('unauthorized'));
     }
 });
-
-// // Then you can handle the connection event after setting up the middleware
-// io.on('connection', (socket) => {
-//     // Now you have access to session data here
-//     const session = socket.request.session;
-//     console.log(`Session user ID: ${session.userId}`);
-    
-//     // Your existing event handlers...
-// });
 
 mongoose.connect(DATABASE_URL)
     .then(() => console.log('MongoDB connected'))

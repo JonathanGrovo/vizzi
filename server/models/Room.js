@@ -15,11 +15,13 @@ const roomSchema = new mongoose.Schema({
     },
     // sessions associated with the room
     users: [{
-        type: String,
-    }],
-    // list of muted sessions in the room
-    mutedUsers: [{
-        type: String,
+        sessionId: { type: String, required: true },
+        status: {
+            type: String,
+            enum: ['online', 'away', 'offline'],
+            default: 'offline'
+        },
+        lastActive: { type: Date, default: Date.now }
     }],
     // settings that the owner can adjust manually
     settings: {
@@ -27,10 +29,6 @@ const roomSchema = new mongoose.Schema({
             type: Number,
             default: 10
         },
-        muteOnEntry: {
-            type: Boolean,
-            default: false
-        }
     },
     currentAudio: {
         type: mongoose.Schema.Types.ObjectId,
