@@ -4,18 +4,30 @@ import io from 'socket.io-client';
 
 const SOCKET_SERVER_URL = 'http://localhost:5000';
 
-export const useSocket = (roomCode) => {
+export const useSocket = (roomCode, username) => {
     const socketRef = useRef(null);
 
     useEffect(() => {
+        if (roomCode && username) {
+            socketRef.current = io(SOCKET_SERVER_URL, {
+                withCredentials: true,
+                query: {roomId: roomCode, username },
+            });
+
+            // set up event listeners 
+        }
+
         // initialize socket connection
-        socketRef.current = io('http://localhost:5000', {
+        socketRef.current = io(SOCKET_SERVER_URL, {
             withCredentials: true,
         });
 
-        // emit the join room event
-        if (roomCode) {
-            socketRef.current.emit('join room', roomCode);
+        console.log(roomCode, username);
+
+        // emit the join room event only if parameters provided
+        if (roomCode && username) {
+            console.log('thisbeinghit 1');
+            socketRef.current.emit('join room', roomCode, username);
         }
 
         // return cleanup function
@@ -24,7 +36,7 @@ export const useSocket = (roomCode) => {
                 socketRef.current.disconnect();
             }
         };
-    }, [roomCode]);
+    }, [roomCode, username]);
 
     return socketRef.current; // return the socket instance
 }

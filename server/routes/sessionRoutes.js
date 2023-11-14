@@ -122,7 +122,7 @@ router.get('/check-username', (req, res) => {
 });
 
 // for clearing the activeRoom of a session
-router.post('/api/sessions/clear-active-room', (req, res) => {
+router.post('/clear-active-room', (req, res) => {
   if (req.session) {
     delete req.session.activeRoom;
     req.session.save((err) => {

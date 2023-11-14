@@ -76,7 +76,7 @@ io.use((socket, next) => {
         console.log(`Session ID: ${session.id}`);
 
         // assign session id to the socket for later use
-        socket.sessionID = session.id;
+        socket.sessionId = session.id;
 
         next();
     } else {
@@ -90,7 +90,7 @@ mongoose.connect(DATABASE_URL)
     .catch(err => console.log(err));
 
 app.use('/api/sessions', sessionRoutes);
-app.use('/api/rooms', roomRoutes);
+app.use('/api/rooms', roomRoutes(io)); // pass io instance
 // app.use('/api/audios', audioRoutes);
 
 app.use((err, req, res, next) => {

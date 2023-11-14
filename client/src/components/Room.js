@@ -1,22 +1,28 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { useSocket } from '../hooks/useSocket';
+import io from 'socket.io-client';
+// import { useSocket } from '../hooks/useSocket';
 import UsernameModal from './UsernameModal';
 import '../styles/UsernameModal.css'
+// import { listeners } from '../../../server/models/Room';
 
 const Room = () => {
   const { roomId } = useParams();
   const [users, setUsers] = useState([]);
-  const socket = useSocket(roomId);
   const [username, setUsername] = useState(null);
   const [showModal, setShowModal] = useState(true);
 
   const [joinLink, setJoinLink] = useState('');
   const navigate = useNavigate();
 
+  // const socket = useSocket(roomId, username);
+
+  const SOCKET_SERVER_URL = 'http://localhost:5000';
+
+  // for managing the join link that can be copied
   useEffect(() => {
-    // CHANGE URL HERE AS NECESry\
+    // change url as necessary
     setJoinLink(`http://localhost:3000/join/${roomId}`);
   }, [roomId]);
 
@@ -34,8 +40,8 @@ const Room = () => {
   const leaveRoom = async () => {
     try {
       // disconnect from websocket
-      if (socket) {
-        socket.disconnect();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
       }
 
       // api call to backend to leave the room
@@ -60,6 +66,20 @@ const Room = () => {
       }
     } catch (error) {
       console.error('Error deleting room:', error);
+    }
+  }
+
+  // handler for kicking a user
+  const kickUser = async (sessionId, socketId) => {
+    try {
+      const response = await axios.post(`/api/rooms/kick/${roomId}`, { sessionId : sessionId, socketId : socketId });
+      if (response.status === 200) {
+        alert('User kicked successfully.');
+        // update the users list state if necessary
+      }
+    } catch (error) {
+      console.error('Error kicking user:', error);
+      // handle error
     }
   }
 
@@ -88,16 +108,30 @@ const Room = () => {
   }
   }, []);  
 
-  // if a Web Socket connection exists
+  const socketRef = useRef(null);
+
   useEffect(() => {
-    if (socket) {
-      // listener for 'user joined'
-      socket.on('user joined', (data) => {
-        setUsers(prevUsers => [...prevUsers, data.username]);
+    console.log(roomId, username);
+    // only establish a connection if roomId and username are available
+    if (roomId && username) {
+
+      socketRef.current = io(SOCKET_SERVER_URL, {
+        withCredentials: true,
+        query: { roomId, username },
+      });
+
+      // emit 'join room' after username is set
+      socketRef.current.emit('join room', roomId, username);
+      console.log('rerender occuring');
+
+      // listener for 'user joined' event
+      socketRef.current.on('user joined', (data) => {
+        console.log('thisbeinghit 2', data.username);
+        setUsers(prevUsers => [...prevUsers, { username: data.username, sessionId: data.sessionId, socketId: data.socketId }]);
       });
 
       // listener for 'room deleted'
-      socket.on('room deleted', () => {
+      socketRef.current.on('room deleted', () => {
         alert('The room has been deleted.');
         
         // make request to server to clear activeRoom field in session
@@ -108,12 +142,26 @@ const Room = () => {
         });
       });
 
+      // listener for 'kicked'
+      socketRef.current.on('kicked', () => {
+        alert('You have been kicked out of the room');
+        
+        // make request to server to clear activeRoom field in session
+        axios.post('/api/sessions/clear-active-room').then(() => {
+          navigate('/');
+        }).catch(error => {
+          console.error('Error clearing active room:', error);
+        });
+      });
+      
       return () => {
-        socket.off('user joined');
-        socket.off('room deleted');
+        // disconnect the socket on cleanup
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+        }
       };
     }
-  }, [socket, navigate]);
+  }, [roomId, username]) // depend on roomId and username
 
   // when the user sets their username
   const handleUsernameSubmit = (enteredUsername) => {
@@ -129,7 +177,12 @@ const Room = () => {
       <h2>Room: {roomId}</h2>
       {showModal && <UsernameModal onClose={handleUsernameSubmit} />}
       <ul>
-        {users.map((user, index) => <li key={index}>{user}</li>)}
+        {users.map((user, index) => (
+          <li key={index}>
+            {user.username}
+            {user.username !== username && <button onClick={() => kickUser(user.sessionId, user.socketId)}>Kick</button>}
+          </li>
+        ))}
       </ul>
       {/* ... other room content ... */}
     </div>
