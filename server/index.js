@@ -89,7 +89,7 @@ mongoose.connect(DATABASE_URL)
     .then(() => console.log('MongoDB connected'))
     .catch(err => console.log(err));
 
-app.use('/api/sessions', sessionRoutes);
+app.use('/api/sessions', sessionRoutes(io));
 app.use('/api/rooms', roomRoutes(io)); // pass io instance
 // app.use('/api/audios', audioRoutes);
 

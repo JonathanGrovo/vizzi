@@ -1,20 +1,18 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
 
-const UsernameModal = ({ onClose, setUsername }) => {
+const UsernameModal = ({ closeModal, setUsername }) => {
     const [username, setUsernameLocal] = useState('');
     const [error, setError] = useState('');
 
     const handleSubmit = async () => {
         if (username) {
             try {
-                console.log(username);
                 await axios.post('/api/sessions/username', { username });
-                console.log('hit the endpoint');
                 setUsername(username);
-                console.log('set the username');
-                onClose(); // Close modal on successful username set
+                closeModal(); // Close modal on successful username set
             } catch (err) {
+                console.error("Error in setting username:", err);
                 setError(err.response?.data?.message || 'Error setting username');
             }
         } else {

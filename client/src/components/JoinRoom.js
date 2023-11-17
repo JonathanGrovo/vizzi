@@ -24,7 +24,7 @@ function JoinRoom() {
           }
 
           // Proceed with joining the room
-          const validationResponse = await axios.get(`/api/rooms/join/${roomId}`);
+          const validationResponse = await axios.post(`/api/rooms/join/${roomId}`);
           if (validationResponse.data.error) {
             setMessage(validationResponse.data.error);
           } else {

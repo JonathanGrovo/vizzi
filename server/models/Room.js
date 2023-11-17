@@ -16,6 +16,8 @@ const roomSchema = new mongoose.Schema({
     // sessions associated with the room
     users: [{
         sessionId: { type: String, required: true },
+        socketId: { type: String },
+        username: {type: String, required: true },
         status: {
             type: String,
             enum: ['online', 'away', 'offline'],

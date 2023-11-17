@@ -11,7 +11,8 @@ const Room = () => {
   const { roomId } = useParams();
   const [users, setUsers] = useState([]);
   const [username, setUsername] = useState(null);
-  const [showModal, setShowModal] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState(null);
 
   const [joinLink, setJoinLink] = useState('');
   const navigate = useNavigate();
@@ -72,6 +73,7 @@ const Room = () => {
   // handler for kicking a user
   const kickUser = async (sessionId, socketId) => {
     try {
+      console.log(sessionId, socketId);
       const response = await axios.post(`/api/rooms/kick/${roomId}`, { sessionId : sessionId, socketId : socketId });
       if (response.status === 200) {
         alert('User kicked successfully.');
@@ -83,52 +85,64 @@ const Room = () => {
     }
   }
 
+  // when the page loads, the list of users is up to date
+  useEffect(() => {
+    // fetch current users in the room
+    const fetchUsers = async () => {
+      try {
+        const response = await axios.get(`/api/rooms/users/${roomId}`);
+        setUsers(response.data.users);
+        setCurrentSessionId(response.data.currentSessionId);
+      } catch (error) {
+        console.error('Error fetching room users:', error);
+      }
+    };
+
+    fetchUsers();
+  }, [roomId]);
+
+
   const mounted = useRef(false);
 
-  // ensuring modal is not shown if username already set for session
+  // logic for showing or hiding modal
   useEffect(() => {
     if (!mounted.current) {
-      mounted.current = true
-      const checkUsername = async () => {
-        try {
-          const response = await axios.get('/api/sessions/check-username');
-          if (response.data.username) {
-            setUsername(response.data.username);
-            setShowModal(false);
-          } else {
-            setShowModal(true);
-          }
-        } catch (error) {
-          console.error("Error checking session username:", error);
-          // Handle error (e.g., show an error message)
-        }
-      };
-    
-      checkUsername();
-  }
-  }, []);  
-
+      mounted.current = true;
+      
+      // Check if it's the user's first visit in this browser session
+      const isFirstVisit = !sessionStorage.getItem('hasVisited');
+      setShowModal(isFirstVisit);
+  
+      // If it's the first visit, set the flag in session storage
+      if (isFirstVisit) {
+        sessionStorage.setItem('hasVisited', 'true');
+      }
+    }
+  }, []);
+  
   const socketRef = useRef(null);
 
   useEffect(() => {
-    console.log(roomId, username);
-    // only establish a connection if roomId and username are available
-    if (roomId && username) {
-
+    // establish connection if roomId is available
+    if (roomId) {
       socketRef.current = io(SOCKET_SERVER_URL, {
         withCredentials: true,
-        query: { roomId, username },
+        query: { roomId, username: username || 'Loading...' },
       });
 
       // emit 'join room' after username is set
-      socketRef.current.emit('join room', roomId, username);
-      console.log('rerender occuring');
+      socketRef.current.emit('join room', roomId, username || 'Loading...');
 
       // listener for 'user joined' event
       socketRef.current.on('user joined', (data) => {
-        console.log('thisbeinghit 2', data.username);
-        setUsers(prevUsers => [...prevUsers, { username: data.username, sessionId: data.sessionId, socketId: data.socketId }]);
-      });
+        setUsers(prevUsers => {
+          // Check if the user is already in the list
+          if (prevUsers.some(user => user.sessionId === data.sessionId)) {
+            return prevUsers; // User already in the list, no need to add
+          }
+          return [...prevUsers, { username: data.username, sessionId: data.sessionId, socketId: data.socketId }];
+        });
+      });      
 
       // listener for 'room deleted'
       socketRef.current.on('room deleted', () => {
@@ -142,15 +156,33 @@ const Room = () => {
         });
       });
 
-      // listener for 'kicked'
+      // listener for 'kicked', wherein this user is the one kicked
       socketRef.current.on('kicked', () => {
         alert('You have been kicked out of the room');
+        console.log('this user is being kicked');
         
         // make request to server to clear activeRoom field in session
         axios.post('/api/sessions/clear-active-room').then(() => {
           navigate('/');
         }).catch(error => {
           console.error('Error clearing active room:', error);
+        });
+      });
+
+      // listener for 'user kicked'
+      socketRef.current.on('user kicked', (data) => {
+        setUsers(prevUsers => prevUsers.filter(user => user.sessionId !== data.sessionId ));
+        console.log(data.sessionId, 'is being kicked');
+      });
+
+      socketRef.current.on('username updated', (data) => {
+        setUsers(prevUsers => {
+          return prevUsers.map(user => {
+            if (user.sessionId === data.sessionId) {
+              return { ...user, username: data.newUsername };
+            }
+            return user;
+          });
         });
       });
       
@@ -163,11 +195,12 @@ const Room = () => {
     }
   }, [roomId, username]) // depend on roomId and username
 
-  // when the user sets their username
-  const handleUsernameSubmit = (enteredUsername) => {
-    setUsername(enteredUsername);
+  // when the user sets their username, close the modal
+  const closeModal = () => {
     setShowModal(false);
   }
+
+  // onClose={handleUsernameSubmit}
   
   return (
     <div className="room">
@@ -175,12 +208,14 @@ const Room = () => {
       <button onClick={leaveRoom}>Leave Room</button>
       <button onClick={deleteRoom}>Delete Room</button>
       <h2>Room: {roomId}</h2>
-      {showModal && <UsernameModal onClose={handleUsernameSubmit} />}
+      {showModal && <UsernameModal closeModal={closeModal} setUsername={setUsername}/>}
       <ul>
         {users.map((user, index) => (
           <li key={index}>
             {user.username}
-            {user.username !== username && <button onClick={() => kickUser(user.sessionId, user.socketId)}>Kick</button>}
+            {currentSessionId && user.sessionId !== currentSessionId && (
+            <button onClick={() => kickUser(user.sessionId, user.socketId)}>Kick</button>
+            )}
           </li>
         ))}
       </ul>
