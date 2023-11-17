@@ -8,7 +8,6 @@ module.exports = (io) => {
     if (req.session) {
         const { username } = req.body;
         const sessionId = req.session.id;
-        const socketId = req.socket.id;
         const activeRoomId = req.session.activeRoom;
 
         // Define username validation rules

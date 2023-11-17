@@ -42,6 +42,7 @@ const Room = () => {
     try {
       // disconnect from websocket
       if (socketRef.current) {
+        socketRef.current.emit('leave room', roomId);
         socketRef.current.disconnect();
       }
 
@@ -64,6 +65,7 @@ const Room = () => {
       if (response.status === 200) {
         alert('Room deleted successfully');
         navigate('/');
+        alert('The room has been deleted by the owner.');
       }
     } catch (error) {
       console.error('Error deleting room:', error);
@@ -164,6 +166,7 @@ const Room = () => {
         // make request to server to clear activeRoom field in session
         axios.post('/api/sessions/clear-active-room').then(() => {
           navigate('/');
+          alert('You have been kicked out of the room');
         }).catch(error => {
           console.error('Error clearing active room:', error);
         });
@@ -175,6 +178,7 @@ const Room = () => {
         console.log(data.sessionId, 'is being kicked');
       });
 
+      // listener for 'username updated' (may need adjustment)
       socketRef.current.on('username updated', (data) => {
         setUsers(prevUsers => {
           return prevUsers.map(user => {
@@ -185,12 +189,34 @@ const Room = () => {
           });
         });
       });
+
+      // listener for 'update user socket'
+      socketRef.current.on('update user socket', (data) => {
+        setUsers(prevUsers => {
+          return prevUsers.map(user => {
+            if (user.sessionId === data.sessionId) {
+              // update the socket id for the user
+              return { ...user, socketId: data.newSocketId };
+            }
+            return user;
+          });
+        });
+      });
+
+      // listener for 'user left' event
+      socketRef.current.on('user left', (data) => {
+        setUsers(prevUsers => {
+          // remove the user who left from the user list
+          return prevUsers.filter(user => user.sessionId !== data.sessionId);
+        })
+      })
       
       return () => {
         // disconnect the socket on cleanup
         if (socketRef.current) {
           socketRef.current.disconnect();
-        }
+        };
+        socketRef.current.off('user left');
       };
     }
   }, [roomId, username]) // depend on roomId and username
