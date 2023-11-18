@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import io from 'socket.io-client';
@@ -6,6 +6,8 @@ import io from 'socket.io-client';
 import UsernameModal from './UsernameModal';
 import '../styles/UsernameModal.css'
 // import { listeners } from '../../../server/models/Room';
+
+import { WebSocketContext } from '../contexts/WebSocketContext';
 
 const Room = () => {
   const { roomId } = useParams();
@@ -36,6 +38,14 @@ const Room = () => {
       console.error('Failed to copy: ', err);
     }
   }
+
+  const disconnectWebSocket = (activeRoom) => {
+    if (socketRef.current) {
+      socketRef.current.emit('leave room', activeRoom);
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+  };
 
   // function to handle leaving the room
   const leaveRoom = async () => {

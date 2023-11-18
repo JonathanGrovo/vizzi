@@ -6,6 +6,7 @@ import axios from 'axios';
 import JoinRoom from './components/JoinRoom';
 import CreateRoom from './components/CreateRoom';
 import Room from './components/Room';
+import { WebSocketProvider } from './contexts/WebSocketContext';
 
 // import hooks
 import useSkipRedirection from './hooks/useSkipRedirection';
@@ -66,16 +67,18 @@ function App() {
     }, [skipRedirection]); // path dependent
   
     return (
-      <div>
-        <NavigationHandler isInRoom={isInRoom} roomId={roomId} />
-          <div>
-                <Routes>
-                  <Route path="/" element={<CreateRoom />} />
-                  <Route path="/join/:roomId" element={<JoinRoom />} />
-                  <Route path="/room/:roomId" element={<Room roomId={roomId}/>} />
-                </Routes>
-          </div>
-      </div>
+      <WebSocketProvider>
+        <div>
+          <NavigationHandler isInRoom={isInRoom} roomId={roomId} />
+            <div>
+                  <Routes>
+                    <Route path="/" element={<CreateRoom />} />
+                    <Route path="/join/:roomId" element={<JoinRoom />} />
+                    <Route path="/room/:roomId" element={<Room roomId={roomId}/>} />
+                  </Routes>
+            </div>
+        </div>
+      </WebSocketProvider>
     );
 }
 
