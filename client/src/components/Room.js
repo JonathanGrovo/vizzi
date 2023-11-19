@@ -19,6 +19,8 @@ const Room = () => {
   const [joinLink, setJoinLink] = useState('');
   const navigate = useNavigate();
 
+  const { disconnectWebSocket } = useContext(WebSocketContext);
+
   // const socket = useSocket(roomId, username);
 
   const SOCKET_SERVER_URL = 'http://localhost:5000';
@@ -38,14 +40,6 @@ const Room = () => {
       console.error('Failed to copy: ', err);
     }
   }
-
-  const disconnectWebSocket = (activeRoom) => {
-    if (socketRef.current) {
-      socketRef.current.emit('leave room', activeRoom);
-      socketRef.current.disconnect();
-      socketRef.current = null;
-    }
-  };
 
   // function to handle leaving the room
   const leaveRoom = async () => {
