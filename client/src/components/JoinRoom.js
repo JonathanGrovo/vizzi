@@ -8,20 +8,8 @@ function JoinRoom() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const navigate = useNavigate();
   const { disconnectWebSocket } = useContext(WebSocketContext);
-
-  // const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const isJoiningRoomRef = useRef(false); // ref to track join request
-
-  // const handleRoomSwitch = async () => {
-  //   try {
-  //     console.log('disconnecting from room');
-  //     disconnectWebSocket(); // Disconnect from the current room
-  //     await axios.post(`/api/rooms/leave`);
-  //     await joinNewRoom();
-  //   } catch (error) {
-  //     console.error('Error switching rooms:', error);
-  //   }
-  // };
+  const checkingActiveRoom = useRef(false); // ref to track if checking active room
 
   const handleRoomSwitch = async () => {
     try {
@@ -75,7 +63,17 @@ function JoinRoom() {
   };
 
   const validateAndHandleRoomJoin = async () => {
+
+    if (checkingActiveRoom.current) {
+      console.log('we are in the process of checking active room');
+      return;
+    }
+
+    console.log('active room validation started');
+    checkingActiveRoom.current = true; // set the ref
+
     try {
+      console.log('WE ARE HITTING NUMBER 2');
       const activeRoomResponse = await axios.get('/api/sessions/active-room');
       const currentActiveRoom = activeRoomResponse.data.activeRoom;
 
@@ -89,6 +87,8 @@ function JoinRoom() {
       }
     } catch (error) {
       console.error('Error during room validation:', error);
+    } finally {
+      checkingActiveRoom.current = false;
     }
   };
 

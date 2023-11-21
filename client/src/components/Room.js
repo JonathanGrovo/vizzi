@@ -19,11 +19,10 @@ const Room = () => {
   const [joinLink, setJoinLink] = useState('');
   const navigate = useNavigate();
 
-  const { disconnectWebSocket } = useContext(WebSocketContext);
-
-  // const socket = useSocket(roomId, username);
-
-  const SOCKET_SERVER_URL = 'http://localhost:5000';
+  const { connectWebSocket, disconnectWebSocket, 
+          onUserJoined, onRoomDeleted, onThisKicked, 
+          onOtherKicked, onUsernameUpdated, onUpdateUserSocket, 
+          onUserLeft } = useContext(WebSocketContext);
 
   // for managing the join link that can be copied
   useEffect(() => {
@@ -131,99 +130,90 @@ const Room = () => {
   useEffect(() => {
     // establish connection if roomId is available
     if (roomId) {
-      socketRef.current = io(SOCKET_SERVER_URL, {
-        withCredentials: true,
-        query: { roomId, username: username || 'Loading...' },
-      });
 
-      // emit 'join room' after username is set
-      socketRef.current.emit('join room', roomId, username || 'Loading...');
+      const callbacks = {
+        'user joined': (data) => {
+          console.log('onUserJoined hit:', data.sessionId);
+          setUsers(prevUsers => {
+            // Check if the user is already in the list
+            if (prevUsers.some(user => user.sessionId === data.sessionId)) {
+              return prevUsers; // User already in the list, no need to add
+            }
+            return [...prevUsers, { username: data.username, sessionId: data.sessionId, socketId: data.socketId }];
+          });
+        },
 
-      // listener for 'user joined' event
-      socketRef.current.on('user joined', (data) => {
-        setUsers(prevUsers => {
-          // Check if the user is already in the list
-          if (prevUsers.some(user => user.sessionId === data.sessionId)) {
-            return prevUsers; // User already in the list, no need to add
-          }
-          return [...prevUsers, { username: data.username, sessionId: data.sessionId, socketId: data.socketId }];
-        });
-      });      
-
-      // listener for 'room deleted'
-      socketRef.current.on('room deleted', () => {
-        alert('The room has been deleted.');
+        'room deleted': () => {
+          alert('The room has been deleted.');
         
-        // make request to server to clear activeRoom field in session
-        axios.post('/api/sessions/clear-active-room').then(() => {
-          navigate('/');
-        }).catch(error => {
-          console.error('Error clearing active room:', error);
-        });
-      });
+          // make request to server to clear activeRoom field in session
+          axios.post('/api/sessions/clear-active-room').then(() => {
+            navigate('/');
+          }).catch(error => {
+            console.error('Error clearing active room:', error);
+          });
+        },
 
-      // listener for 'kicked', wherein this user is the one kicked
-      socketRef.current.on('kicked', () => {
-        alert('You have been kicked out of the room');
-        console.log('this user is being kicked');
-        
-        // make request to server to clear activeRoom field in session
-        axios.post('/api/sessions/clear-active-room').then(() => {
-          navigate('/');
+        'this kicked': () => {
           alert('You have been kicked out of the room');
-        }).catch(error => {
-          console.error('Error clearing active room:', error);
-        });
-      });
 
-      // listener for 'user kicked'
-      socketRef.current.on('user kicked', (data) => {
-        setUsers(prevUsers => prevUsers.filter(user => user.sessionId !== data.sessionId ));
-        console.log(data.sessionId, 'is being kicked');
-      });
-
-      // listener for 'username updated' (may need adjustment)
-      socketRef.current.on('username updated', (data) => {
-        setUsers(prevUsers => {
-          return prevUsers.map(user => {
-            if (user.sessionId === data.sessionId) {
-              return { ...user, username: data.newUsername };
-            }
-            return user;
+          // make request to server to clear activeRoom field in session
+          axios.post('/api/sessions/clear-active-room').then(() => {
+            navigate('/');
+            alert('You have been kicked out of the room');
+          }).catch(error => {
+            console.error('Error clearing active room:', error);
           });
-        });
-      });
+          console.log('this user is being kicked');
+        },
 
-      // listener for 'update user socket'
-      socketRef.current.on('update user socket', (data) => {
-        setUsers(prevUsers => {
-          return prevUsers.map(user => {
-            if (user.sessionId === data.sessionId) {
-              // update the socket id for the user
-              return { ...user, socketId: data.newSocketId };
-            }
-            return user;
+        'other kicked': (data) => {
+          setUsers(prevUsers => prevUsers.filter(user => user.sessionId !== data.sessionId ));
+          console.log(data.sessionId, 'is being kicked');
+        },
+
+        'username updated': (data) => {
+          setUsers(prevUsers => {
+            return prevUsers.map(user => {
+              if (user.sessionId === data.sessionId) {
+                return { ...user, username: data.newUsername };
+              }
+              return user;
+            });
           });
-        });
-      });
+          console.log('a username has been updated:', data.sessionId);
+        },
 
-      // listener for 'user left' event
-      socketRef.current.on('user left', (data) => {
-        setUsers(prevUsers => {
-          // remove the user who left from the user list
-          return prevUsers.filter(user => user.sessionId !== data.sessionId);
-        })
-      })
+        'update user socket': (data) => {
+          setUsers(prevUsers => {
+            return prevUsers.map(user => {
+              if (user.sessionId === data.sessionId) {
+                // update the socket id for the user
+                return { ...user, socketId: data.newSocketId };
+              }
+              return user;
+            });
+          });
+        },
+
+        'user left': (data) => {
+          setUsers(prevUsers => {
+            // remove the user who left from the user list
+            return prevUsers.filter(user => user.sessionId !== data.sessionId);
+          });
+        },
+      }
+
+      // establish websocket connection
+      console.log('the roomid and username being used to start connnection:', roomId, username);
+      connectWebSocket(roomId, username, callbacks);
       
+      // disconnect websocket on component unmount
       return () => {
-        // disconnect the socket on cleanup
-        if (socketRef.current) {
-          socketRef.current.disconnect();
-        };
-        socketRef.current.off('user left');
+        disconnectWebSocket();
       };
     }
-  }, [roomId, username]) // depend on roomId and username
+  }, [roomId, username, connectWebSocket, disconnectWebSocket]);
 
   // when the user sets their username, close the modal
   const closeModal = () => {

@@ -129,12 +129,9 @@ module.exports = (io) => {
     
   // getting the active room of a session
   router.get('/active-room', (req, res) => {
-      console.log('this session is:', req.session);
       if (req.session && req.session.activeRoom) {
-        console.log('there is an active room in the session:', req.session.activeRoom);
           res.status(200).json({ activeRoom: req.session.activeRoom });
       } else {
-        console.log('No active room in the session');
         res.status(200).json({ activeRoom: null });
       }
   });

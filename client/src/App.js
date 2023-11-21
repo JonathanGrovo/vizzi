@@ -36,6 +36,32 @@ function App() {
     // const navigate = useNavigate();
     const skipRedirection = useSkipRedirection();
 
+    // ensures one tab per session
+    useEffect(() => {
+        // unique identifier for the tab
+        const tabId = new Date().getTime();
+
+        // set value in localStorage
+        localStorage.setItem('tabId', tabId);
+
+        // event listener for storage changes
+        const handleStorageChange = (event) => {
+          if (event.key === 'tabId' && event.newValue !== null && parseInt(event.newValue, 10) !== tabId) {
+            alert('This app is already open in another tab');
+            window.close(); // MIGHT NOT ALWAYS WORK
+          }
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+
+        // clean up
+        return () => {
+          localStorage.removeItem('tabId');
+          window.removeEventListener('storage', handleStorageChange);
+        };
+    }, []);
+
+
     // const [isLoading, setIsLoading] = useState(true); // for loading states
     
     const mounted = useRef(false);
